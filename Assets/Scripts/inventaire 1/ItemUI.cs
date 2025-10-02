@@ -4,26 +4,42 @@ using UnityEngine.UI;
 
 public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
-    public Item itemData;
-    public Image icon;
+    [Header("Item Data")]
+    public Item itemData;      // Données de l'item (nom, description, icône)
+    public Image icon;         // Icône de l'item affichée dans l'inventaire
 
+    [Header("Tooltip")]
     private Tooltip tooltip;
 
-    private float hoverTime = 2f;
+    private float hoverTime = 2f;   // Temps avant d'afficher le tooltip
     private float timer = 0f;
     private bool isHovering = false;
     private bool tooltipVisible = false;
 
     private void Awake()
     {
+        // Trouver le Tooltip dans la scène (pas besoin de le lier à chaque prefab)
         tooltip = FindFirstObjectByType<Tooltip>();
+
+        // Si l’itemData est défini dans l’Inspector (ex: spawn auto par InventorySpawner)
+        if (itemData != null)
+        {
+            Setup(itemData);
+        }
     }
 
+    /// <summary>
+    /// Configure l'UI de l'item à partir de ses données
+    /// </summary>
     public void Setup(Item newItemData)
     {
         itemData = newItemData;
-        icon.sprite = itemData.icon;
-        icon.enabled = true;
+
+        if (icon != null && itemData.icon != null)
+        {
+            icon.sprite = itemData.icon;
+            icon.enabled = true;
+        }
     }
 
     public void OnPointerEnter(PointerEventData eventData)
