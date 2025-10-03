@@ -1271,10 +1271,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bfbf8258d4c9bcb4caf40cc1a456a01e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  slotPrefab: {fileID: 4231450062307807887, guid: 13b646058b5a9244e8190b91a618265c, type: 3}
-  gridPanel: {fileID: 414273599}
   width: 6
   height: 5
+  slotPrefab: {fileID: 4231450062307807887, guid: 13b646058b5a9244e8190b91a618265c, type: 3}
+  slotParent: {fileID: 414273599}
 --- !u!4 &2075365497
 Transform:
   m_ObjectHideFlags: 0

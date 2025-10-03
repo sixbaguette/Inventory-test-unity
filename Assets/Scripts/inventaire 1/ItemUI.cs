@@ -1,44 +1,60 @@
 ﻿using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
-    [Header("Item Data")]
-    public Item itemData;      // Données de l'item (nom, description, icône)
-    public Image icon;         // Icône de l'item affichée dans l'inventaire
+    public Item itemData;
+    public Image icon;
+    public Slot currentSlot;
+    public Slot[] occupiedSlots;
 
-    [Header("Tooltip")]
     private Tooltip tooltip;
 
-    private float hoverTime = 2f;   // Temps avant d'afficher le tooltip
+    private float hoverTime = 2f;
     private float timer = 0f;
     private bool isHovering = false;
     private bool tooltipVisible = false;
 
+    [HideInInspector]
+    public RectTransform rectTransform { get; private set; }
+
     private void Awake()
     {
-        // Trouver le Tooltip dans la scène (pas besoin de le lier à chaque prefab)
+        rectTransform = GetComponent<RectTransform>();
+
+        // Trouver le Tooltip dans la scène
         tooltip = FindFirstObjectByType<Tooltip>();
 
-        // Si l’itemData est défini dans l’Inspector (ex: spawn auto par InventorySpawner)
         if (itemData != null)
         {
             Setup(itemData);
         }
     }
 
-    /// <summary>
-    /// Configure l'UI de l'item à partir de ses données
-    /// </summary>
+
     public void Setup(Item newItemData)
     {
         itemData = newItemData;
-
         if (icon != null && itemData.icon != null)
         {
             icon.sprite = itemData.icon;
             icon.enabled = true;
+        }
+    }
+
+    public void SetOccupiedSlots(int startX, int startY, int width, int height)
+    {
+        occupiedSlots = new Slot[width * height];
+
+        int index = 0;
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                occupiedSlots[index] = InventoryManager.Instance.slots[startX + x, startY + y];
+                index++;
+            }
         }
     }
 
@@ -52,21 +68,17 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     public void OnPointerExit(PointerEventData eventData)
     {
         isHovering = false;
-
         if (tooltipVisible && tooltip != null)
             tooltip.Hide();
-
         tooltipVisible = false;
     }
 
     private void Update()
     {
         if (tooltip == null || itemData == null) return;
-
         if (isHovering && !tooltipVisible)
         {
             timer += Time.deltaTime;
-
             if (timer >= hoverTime)
             {
                 tooltip.Show(itemData);

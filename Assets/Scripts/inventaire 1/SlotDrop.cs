@@ -1,19 +1,17 @@
-using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine;
 
 public class SlotDrop : MonoBehaviour, IDropHandler
 {
     public int x;
     public int y;
 
-    public void Setup(int xCoord, int yCoord)
-    {
-        x = xCoord;
-        y = yCoord;
-    }
-
     public void OnDrop(PointerEventData eventData)
     {
-        // Le drag gère déjà le placement
+        ItemDrag draggedItem = eventData.pointerDrag?.GetComponent<ItemDrag>();
+        if (draggedItem != null)
+        {
+            InventoryManager.Instance.PlaceItem(draggedItem.GetComponent<ItemUI>(), x, y);
+        }
     }
 }

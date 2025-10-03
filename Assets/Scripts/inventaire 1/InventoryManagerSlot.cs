@@ -2,16 +2,15 @@
 
 public class InventoryManager : MonoBehaviour
 {
-    public static InventoryManager Instance { get; private set; }
+    public static InventoryManager Instance;
 
-    public GameObject slotPrefab;
-    public Transform gridPanel;
     public int width = 6;
-    public int height = 5;
+    public int height = 4;
+    public GameObject slotPrefab;
+    public Transform slotParent;
 
-    [HideInInspector] public Slot[,] slots;
-
-    public static float slotSize = 100f; // Taille d’un slot en pixels
+    [HideInInspector]
+    public Slot[,] slots;
 
     private void Awake()
     {
@@ -22,10 +21,10 @@ public class InventoryManager : MonoBehaviour
         }
         Instance = this;
 
-        CreateGrid();
+        InitializeGrid();
     }
 
-    public void CreateGrid()
+    private void InitializeGrid()
     {
         slots = new Slot[width, height];
 
@@ -33,50 +32,74 @@ public class InventoryManager : MonoBehaviour
         {
             for (int x = 0; x < width; x++)
             {
-                GameObject slotObj = Instantiate(slotPrefab, gridPanel);
-                Slot slot = slotObj.GetComponent<Slot>();
-                slot.Setup(x, y);
+                GameObject slotGO = Instantiate(slotPrefab, slotParent); // <-- attache au slotParent
+                Slot slot = slotGO.GetComponent<Slot>();
+                slot.Setup(x, y); // <-- définit la position du slot
                 slots[x, y] = slot;
+
+                SlotDrop slotDrop = slotGO.GetComponent<SlotDrop>();
+                if (slotDrop != null)
+                {
+                    slotDrop.x = x; // <-- indispensable pour le drag & drop
+                    slotDrop.y = y;
+                }
             }
         }
-
-        Debug.Log($"[InventoryManager] Grille créée {width}x{height} (total {width * height} slots)");
     }
+
 
     public bool CanPlaceItem(int startX, int startY, Item item)
     {
-        if (startX + item.width > width || startY + item.height > height)
-            return false;
+        if (item == null) return false;
 
         for (int y = 0; y < item.height; y++)
         {
             for (int x = 0; x < item.width; x++)
             {
-                if (!slots[startX + x, startY + y].IsEmpty)
-                    return false;
+                int checkX = startX + x;
+                int checkY = startY + y;
+
+                if (checkX >= width || checkY >= height) return false;
+                if (slots[checkX, checkY].HasItem()) return false;
             }
         }
-
         return true;
     }
 
     public bool PlaceItem(ItemUI itemUI, int startX, int startY)
     {
-        if (!CanPlaceItem(startX, startY, itemUI.itemData))
-            return false;
+        Item item = itemUI.itemData;
 
-        for (int y = 0; y < itemUI.itemData.height; y++)
+        // 🚨 Libère les anciens slots **avant** de tester
+        if (itemUI.currentSlot != null)
         {
-            for (int x = 0; x < itemUI.itemData.width; x++)
-            {
-                slots[startX + x, startY + y].currentItem = itemUI;
-            }
+            foreach (var slot in itemUI.occupiedSlots)
+                slot.ClearItem();
         }
 
-        RectTransform rt = itemUI.GetComponent<RectTransform>();
-        rt.SetParent(slots[startX, startY].transform, false);
-        rt.anchoredPosition = Vector2.zero;
+        if (!CanPlaceItem(startX, startY, item))
+        {
+            // Re-assigner les anciens slots car on ne peut pas placer
+            itemUI.SetOccupiedSlots(itemUI.currentSlot.x, itemUI.currentSlot.y, item.width, item.height);
+            foreach (var slot in itemUI.occupiedSlots)
+                slot.SetItem(itemUI);
+
+            return false;
+        }
+
+        // Réattribue les nouveaux slots
+        itemUI.SetOccupiedSlots(startX, startY, item.width, item.height);
+        foreach (var slot in itemUI.occupiedSlots)
+            slot.SetItem(itemUI);
+
+        // Positionne précisément l’item
+        Slot targetSlot = slots[startX, startY];
+        itemUI.transform.SetParent(targetSlot.transform, false);
+        itemUI.transform.localPosition = Vector3.zero;
+
+        itemUI.currentSlot = targetSlot;
 
         return true;
     }
+
 }

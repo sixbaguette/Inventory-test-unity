@@ -2,14 +2,34 @@ using UnityEngine;
 
 public class Slot : MonoBehaviour
 {
-    public int x, y;
-    public ItemUI currentItem;
+    public int x;
+    public int y;
 
-    public bool IsEmpty => currentItem == null;
+    private ItemUI currentItem;
 
-    public void Setup(int gridX, int gridY)
+    public void Setup(int posX, int posY)
     {
-        x = gridX;
-        y = gridY;
+        x = posX;
+        y = posY;
+    }
+
+    public void SetItem(ItemUI item)
+    {
+        currentItem = item;
+    }
+
+    public void ClearItem()
+    {
+        currentItem = null;
+    }
+
+    public bool HasItem()
+    {
+        return currentItem != null;
+    }
+
+    public ItemUI GetItem()
+    {
+        return currentItem;
     }
 }

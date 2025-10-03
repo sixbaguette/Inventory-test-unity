@@ -1,13 +1,11 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 [CreateAssetMenu(fileName = "NewItem", menuName = "Inventory/Item")]
 public class Item : ScriptableObject
 {
     public string itemName;
-    public string description;
+    public string description; // ← Ajouté pour ToolTip
     public Sprite icon;
-
-    [Header("Dimensions")]
-    public int width = 1;  // Nombre de slots horizontaux
-    public int height = 1; // Nombre de slots verticaux
+    public int width = 1;  // Largeur en slots
+    public int height = 1; // Hauteur en slots
 }

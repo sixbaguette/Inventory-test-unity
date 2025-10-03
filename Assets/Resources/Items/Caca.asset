@@ -15,5 +15,5 @@ MonoBehaviour:
   itemName: caca
   description: pipi
   icon: {fileID: 10901, guid: 0000000000000000f000000000000000, type: 0}
-  width: 1
-  height: 1
+  width: 2
+  height: 2
