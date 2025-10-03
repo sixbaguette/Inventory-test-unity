@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 public class Slot : MonoBehaviour
 {
@@ -6,6 +7,12 @@ public class Slot : MonoBehaviour
     public int y;
 
     private ItemUI currentItem;
+    private Image slotImage;
+
+    private void Awake()
+    {
+        slotImage = GetComponent<Image>();
+    }
 
     public void Setup(int posX, int posY)
     {
@@ -31,5 +38,18 @@ public class Slot : MonoBehaviour
     public ItemUI GetItem()
     {
         return currentItem;
+    }
+
+    // --- NOUVEAU ---
+    public void Highlight(Color color)
+    {
+        if (slotImage != null)
+            slotImage.color = color;
+    }
+
+    public void ResetHighlight()
+    {
+        if (slotImage != null)
+            slotImage.color = Color.gray; // couleur par défaut
     }
 }

@@ -48,7 +48,7 @@ public class InventoryManager : MonoBehaviour
     }
 
 
-    public bool CanPlaceItem(int startX, int startY, Item item)
+    public bool CanPlaceItem(int startX, int startY, Item item, ItemUI ignoreItemUI = null)
     {
         if (item == null) return false;
 
@@ -60,17 +60,26 @@ public class InventoryManager : MonoBehaviour
                 int checkY = startY + y;
 
                 if (checkX >= width || checkY >= height) return false;
-                if (slots[checkX, checkY].HasItem()) return false;
+
+                Slot slot = slots[checkX, checkY];
+
+                // Si le slot est occupé mais c'est l'item qu'on déplace → on ignore
+                if (slot.HasItem() && slot.GetItem() != ignoreItemUI)
+                {
+                    return false;
+                }
             }
         }
+
         return true;
     }
+
 
     public bool PlaceItem(ItemUI itemUI, int startX, int startY)
     {
         Item item = itemUI.itemData;
 
-        // 🚨 Libère les anciens slots **avant** de tester
+        // Libère les anciens slots **avant** de tester
         if (itemUI.currentSlot != null)
         {
             foreach (var slot in itemUI.occupiedSlots)
