@@ -115,4 +115,5 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   itemData: {fileID: 0}
-  icon: {fileID: 4595429619142427390}
+  iconImage: {fileID: 0}
+  borderImage: {fileID: 0}

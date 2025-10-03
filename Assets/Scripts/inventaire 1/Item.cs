@@ -4,10 +4,10 @@ using UnityEngine;
 public class Item : ScriptableObject
 {
     public string itemName;
-    [TextArea] public string description;
+    public string description;
     public Sprite icon;
 
-    // Pour plus tard (multi-slot modulable)
-    public int width = 1;
-    public int height = 1;
+    [Header("Dimensions")]
+    public int width = 1;  // Nombre de slots horizontaux
+    public int height = 1; // Nombre de slots verticaux
 }

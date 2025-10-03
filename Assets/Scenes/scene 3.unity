@@ -690,7 +690,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &983128943
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -698,14 +698,11 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 983128942}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2c566e73a5b35c34691538f27030b849, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  itemPrefab: {fileID: 5175962678925426613, guid: 91c88fc7a30216c4ab598d43a0ed15b3, type: 3}
-  inventoryManager: {fileID: 2075365496}
-  itemData: {fileID: 11400000, guid: 13610217e75afae43b77ee44f397c404, type: 2}
 --- !u!4 &983128944
 Transform:
   m_ObjectHideFlags: 0
@@ -1254,6 +1251,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2075365497}
   - component: {fileID: 2075365496}
+  - component: {fileID: 2075365498}
   m_Layer: 0
   m_Name: InventoryManager
   m_TagString: Untagged
@@ -1277,7 +1275,6 @@ MonoBehaviour:
   gridPanel: {fileID: 414273599}
   width: 6
   height: 5
-  firstSlot: {fileID: 0}
 --- !u!4 &2075365497
 Transform:
   m_ObjectHideFlags: 0
@@ -1293,6 +1290,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2075365498
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2075365495}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fdef1f3be4a2d7b41bc6f6f11aa4031a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  itemPrefab: {fileID: 5175962678925426613, guid: 91c88fc7a30216c4ab598d43a0ed15b3, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

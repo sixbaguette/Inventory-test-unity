@@ -12,6 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 84959a517ee57ad4fbc47e51f26d5107, type: 3}
   m_Name: Potion
   m_EditorClassIdentifier: 
-  itemName: Potion
-  description: ougaougagg
+  itemName: Item 1
+  description: ouga
   icon: {fileID: 10913, guid: 0000000000000000f000000000000000, type: 0}
+  width: 2
+  height: 2

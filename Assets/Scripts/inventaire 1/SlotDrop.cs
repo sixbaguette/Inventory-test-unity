@@ -3,13 +3,17 @@ using UnityEngine.EventSystems;
 
 public class SlotDrop : MonoBehaviour, IDropHandler
 {
+    public int x;
+    public int y;
+
+    public void Setup(int xCoord, int yCoord)
+    {
+        x = xCoord;
+        y = yCoord;
+    }
+
     public void OnDrop(PointerEventData eventData)
     {
-        if (eventData.pointerDrag != null)
-        {
-            GameObject droppedItem = eventData.pointerDrag;
-            droppedItem.transform.SetParent(transform);
-            droppedItem.GetComponent<RectTransform>().anchoredPosition = Vector2.zero;
-        }
+        // Le drag gère déjà le placement
     }
 }

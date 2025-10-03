@@ -3,6 +3,7 @@ using System.Collections;
 
 public class Instancer : MonoBehaviour
 {
+    /*
     public GameObject itemPrefab;
     public InventoryManager inventoryManager;
     public Item itemData; // notre ScriptableObject
@@ -28,4 +29,5 @@ public class Instancer : MonoBehaviour
         if (itemUI != null)
             itemUI.Setup(itemData);
     }
+    */
 }

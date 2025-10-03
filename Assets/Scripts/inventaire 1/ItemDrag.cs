@@ -6,25 +6,41 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
     private RectTransform rectTransform;
     private CanvasGroup canvasGroup;
     private Transform originalParent;
+    private Vector2 originalPosition;
+
     private Canvas canvas;
 
     private void Awake()
     {
         rectTransform = GetComponent<RectTransform>();
         canvasGroup = GetComponent<CanvasGroup>();
+
         canvas = GetComponentInParent<Canvas>();
+        if (canvas == null)
+        {
+            canvas = FindFirstObjectByType<Canvas>();
+            if (canvas == null)
+            {
+                Debug.LogError("[ItemDrag] Canvas introuvable !");
+            }
+        }
     }
+
+
 
     public void OnBeginDrag(PointerEventData eventData)
     {
-        originalParent = transform.parent;
+        if (canvas == null) return;
 
-        // Passe devant tout dans le Canvas
-        transform.SetParent(canvas.transform, true);
+        originalParent = transform.parent;
+        originalPosition = rectTransform.anchoredPosition;
+
+        transform.SetParent(canvas.transform, true); // Permet d’être au-dessus des autres éléments
         transform.SetAsLastSibling();
 
         canvasGroup.blocksRaycasts = false;
     }
+
 
     public void OnDrag(PointerEventData eventData)
     {
@@ -37,13 +53,40 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
         if (hovered != null && hovered.GetComponent<SlotDrop>() != null)
         {
             transform.SetParent(hovered.transform, false);
+            rectTransform.anchoredPosition = Vector2.zero;
         }
         else
         {
             transform.SetParent(originalParent, false);
+            rectTransform.anchoredPosition = originalPosition;
         }
 
-        rectTransform.anchoredPosition = Vector2.zero;
         canvasGroup.blocksRaycasts = true;
+    }
+
+
+    private SlotDrop GetSlotUnderPointer(PointerEventData eventData)
+    {
+        foreach (Slot slot in InventoryManager.Instance.slots)
+        {
+            SlotDrop slotDrop = slot.GetComponent<SlotDrop>();
+            if (slotDrop != null)
+            {
+                if (RectTransformUtility.RectangleContainsScreenPoint(
+                        slotDrop.GetComponent<RectTransform>(),
+                        eventData.position,
+                        eventData.pressEventCamera))
+                {
+                    return slotDrop;
+                }
+            }
+        }
+        return null;
+    }
+
+    private void ReturnToOriginal()
+    {
+        transform.SetParent(originalParent, false);
+        rectTransform.anchoredPosition = originalPosition;
     }
 }
