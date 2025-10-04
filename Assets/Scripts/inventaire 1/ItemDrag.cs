@@ -3,6 +3,7 @@ using UnityEngine.EventSystems;
 
 public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
+    private Canvas overlayCanvas;
     private RectTransform rectTransform;
     private CanvasGroup canvasGroup;
     private Transform originalParent;
@@ -15,15 +16,26 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
         canvasGroup = GetComponent<CanvasGroup>();
         itemUI = GetComponent<ItemUI>();
 
-        canvas = GetComponentInParent<Canvas>();
-        if (canvas == null)
-            canvas = FindFirstObjectByType<Canvas>();
+        // Trouve le Canvas Overlay
+        Canvas[] canvases = FindObjectsByType<Canvas>(FindObjectsSortMode.None);
+        foreach (Canvas c in canvases)
+        {
+            if (c.gameObject.name == "ItemOverlayCanvas")
+            {
+                overlayCanvas = c;
+                break;
+            }
+        }
+
+        if (overlayCanvas == null)
+            Debug.LogError("ItemOverlayCanvas introuvable dans la scène !");
     }
 
     public void OnBeginDrag(PointerEventData eventData)
     {
         originalParent = transform.parent;
-        transform.SetParent(canvas.transform, true);
+
+        transform.SetParent(overlayCanvas.transform, true); // Passe au-dessus
         transform.SetAsLastSibling();
         canvasGroup.blocksRaycasts = false;
     }

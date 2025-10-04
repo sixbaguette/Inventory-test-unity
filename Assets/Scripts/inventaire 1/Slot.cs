@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 
 public class Slot : MonoBehaviour
@@ -50,6 +50,6 @@ public class Slot : MonoBehaviour
     public void ResetHighlight()
     {
         if (slotImage != null)
-            slotImage.color = Color.gray; // couleur par d�faut
+            slotImage.color = Color.gray; // couleur par défaut
     }
 }

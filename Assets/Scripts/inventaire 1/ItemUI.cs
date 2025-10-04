@@ -9,6 +9,9 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     public Slot currentSlot;
     public Slot[] occupiedSlots;
 
+    [Header("UI Contour")]
+    public Image outline; // <- référence à ton contour visuel
+
     private Tooltip tooltip;
 
     private float hoverTime = 2f;
@@ -23,24 +26,62 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         rectTransform = GetComponent<RectTransform>();
 
-        // Trouver le Tooltip dans la scène
         tooltip = FindFirstObjectByType<Tooltip>();
 
         if (itemData != null)
-        {
             Setup(itemData);
-        }
     }
-
 
     public void Setup(Item newItemData)
     {
         itemData = newItemData;
+
         if (icon != null && itemData.icon != null)
         {
             icon.sprite = itemData.icon;
             icon.enabled = true;
         }
+
+        UpdateOutline();
+    }
+
+    public void UpdateOutline()
+    {
+        if (outline == null || itemData == null || InventoryManager.Instance == null)
+            return;
+
+        RectTransform slotRect = InventoryManager.Instance.slots[0, 0].GetComponent<RectTransform>();
+        Vector2 slotSize = slotRect.sizeDelta;
+
+        float spacingX = 0f, spacingY = 0f;
+        var grid = InventoryManager.Instance.slotParent.GetComponent<UnityEngine.UI.GridLayoutGroup>();
+        if (grid != null)
+        {
+            spacingX = grid.spacing.x;
+            spacingY = grid.spacing.y;
+        }
+
+        Vector2 totalSize = new Vector2(
+            (itemData.width * slotSize.x) + ((itemData.width - 1) * spacingX),
+            (itemData.height * slotSize.y) + ((itemData.height - 1) * spacingY)
+        );
+
+        Vector2 margin = new Vector2(2, 2);
+        outline.rectTransform.anchorMin = new Vector2(0, 1);
+        outline.rectTransform.anchorMax = new Vector2(0, 1);
+        outline.rectTransform.pivot = new Vector2(0, 1);
+        outline.rectTransform.sizeDelta = totalSize + margin;
+        outline.rectTransform.anchoredPosition = new Vector2(-margin.x / 2f, margin.y / 2f);
+
+        // Rendu toujours au-dessus
+        Canvas outlineCanvas = outline.GetComponent<Canvas>();
+        if (outlineCanvas == null)
+            outlineCanvas = outline.gameObject.AddComponent<Canvas>();
+
+        outlineCanvas.overrideSorting = true;
+        outlineCanvas.sortingOrder = 9999;
+
+        outline.transform.SetAsLastSibling();
     }
 
     public void SetOccupiedSlots(int startX, int startY, int width, int height)
