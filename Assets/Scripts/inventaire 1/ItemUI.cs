@@ -11,9 +11,8 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     public int originSlotX;
     public int originSlotY;
     public Item item;
-
-
     public Image outline;
+
 
     private Tooltip tooltip;
     private float hoverTime = 2f;
@@ -23,6 +22,18 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
     [HideInInspector]
     public RectTransform rectTransform { get; private set; }
+    private bool originalSizeStored = false;
+    public int originalSiblingIndex { get; private set; }
+    [HideInInspector]
+    public Vector2 originalSize;
+    [HideInInspector]
+    public Transform originalParent;
+    [HideInInspector]
+    public Vector3 originalPosition;
+    [HideInInspector]
+    public Vector2 originalAnchoredPosition;
+    [HideInInspector]
+    public Vector2 originalOutlineSize;
 
     private void Awake()
     {
@@ -31,6 +42,8 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
         if (itemData != null)
             Setup(itemData);
+
+        StoreOriginalState();
     }
 
     public void Setup(Item newItemData)
@@ -45,6 +58,32 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
         UpdateOutline();
         UpdateSize();
+
+        StoreOriginalState();
+    }
+
+    public void StoreOriginalState()
+    {
+        originalSize = rectTransform.sizeDelta;
+        if (outline != null)
+            originalOutlineSize = outline.rectTransform.sizeDelta;
+
+        originalParent = transform.parent;
+    }
+
+    public void RestoreOriginalState()
+    {
+        rectTransform.sizeDelta = originalSize;
+        if (outline != null)
+            outline.rectTransform.sizeDelta = originalOutlineSize;
+
+        transform.SetParent(originalParent, false);
+    }
+
+    public void ResizeTo(Vector2 newSize)
+    {
+        rectTransform.sizeDelta = newSize;
+        UpdateOutline();
     }
 
     public void UpdateOutline()
@@ -108,6 +147,8 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
             (itemData.width * slotSize.x) + ((itemData.width - 1) * spacingX),
             (itemData.height * slotSize.y) + ((itemData.height - 1) * spacingY)
         );
+
+        UpdateOutline();
     }
 
     public void OnPointerEnter(PointerEventData eventData)

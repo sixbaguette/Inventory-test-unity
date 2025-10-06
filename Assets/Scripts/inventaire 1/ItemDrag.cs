@@ -28,6 +28,21 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
         transform.SetAsLastSibling();
         canvasGroup.blocksRaycasts = false;
 
+        // Si on drag depuis un slot équipement, restore l’état
+        EquipementSlot equipSlot = GetComponentInParent<EquipementSlot>();
+        if (equipSlot != null && equipSlot.CurrentItem == itemUI)
+        {
+            equipSlot.UnequipItem();
+        }
+
+        CanvasGroup cg = itemUI.GetComponent<CanvasGroup>();
+        if (cg != null) cg.blocksRaycasts = false;
+
+        originalParent = transform.parent;
+        transform.SetParent(overlayCanvas.transform, true);
+        transform.SetAsLastSibling();
+        canvasGroup.blocksRaycasts = false;
+
         // Trouver le slot le plus proche de la souris
         Slot nearestSlot = null;
         float minDist = float.MaxValue;
@@ -55,6 +70,7 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
 
     public void OnDrag(PointerEventData eventData)
     {
+        if (!enabled) return;
         Vector2 localPoint;
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
             overlayCanvas.transform as RectTransform,
@@ -68,6 +84,7 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
 
     public void OnEndDrag(PointerEventData eventData)
     {
+        if (!enabled) return;
         foreach (var slot in InventoryManager.Instance.slots)
             slot.ResetHighlight();
 
@@ -109,8 +126,6 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
             InventoryManager.Instance.PlaceItem(itemUI, itemUI.currentSlot.x, itemUI.currentSlot.y);
         }
     }
-
-
 
     private float slotWidth
     {
