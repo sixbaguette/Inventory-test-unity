@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
+using static UnityEditor.Progress;
 
 public class Slot : MonoBehaviour
 {
@@ -8,6 +9,7 @@ public class Slot : MonoBehaviour
 
     private ItemUI currentItem;
     private Image slotImage;
+    private ItemUI itemUI; // <-- référence à l'ItemUI occupant ce slot
 
     private void Awake()
     {
@@ -38,6 +40,11 @@ public class Slot : MonoBehaviour
     public ItemUI GetItem()
     {
         return currentItem;
+    }
+
+    public ItemUI GetItemUI()
+    {
+        return itemUI;
     }
 
     // --- NOUVEAU ---

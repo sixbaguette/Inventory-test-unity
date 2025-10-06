@@ -3,94 +3,67 @@ using UnityEngine.EventSystems;
 
 public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
+    public ItemUI itemUI;
+    private Transform originalParent;
     private Canvas overlayCanvas;
     private RectTransform rectTransform;
     private CanvasGroup canvasGroup;
-    private Transform originalParent;
-    private Canvas canvas;
-    private ItemUI itemUI;
+
+    private Slot dragOffsetSlot; // Le slot sous la souris quand on commence le drag
+    private Vector2 dragOffset;
+    private Vector2 grabOffset; // Offset souris → centre de l’objet
 
     private void Awake()
     {
+        itemUI = GetComponent<ItemUI>();
         rectTransform = GetComponent<RectTransform>();
         canvasGroup = GetComponent<CanvasGroup>();
-        itemUI = GetComponent<ItemUI>();
-
-        // Trouve le Canvas Overlay
-        Canvas[] canvases = FindObjectsByType<Canvas>(FindObjectsSortMode.None);
-        foreach (Canvas c in canvases)
-        {
-            if (c.gameObject.name == "ItemOverlayCanvas")
-            {
-                overlayCanvas = c;
-                break;
-            }
-        }
-
-        if (overlayCanvas == null)
-            Debug.LogError("ItemOverlayCanvas introuvable dans la scène !");
+        overlayCanvas = FindFirstObjectByType<Canvas>();
     }
 
     public void OnBeginDrag(PointerEventData eventData)
     {
         originalParent = transform.parent;
-
-        transform.SetParent(overlayCanvas.transform, true); // Passe au-dessus
+        transform.SetParent(overlayCanvas.transform, true);
         transform.SetAsLastSibling();
         canvasGroup.blocksRaycasts = false;
+
+        // Trouver le slot le plus proche de la souris
+        Slot nearestSlot = null;
+        float minDist = float.MaxValue;
+
+        foreach (var slot in itemUI.occupiedSlots)
+        {
+            float dist = Vector2.Distance(eventData.position, slot.GetComponent<RectTransform>().position);
+            if (dist < minDist)
+            {
+                minDist = dist;
+                nearestSlot = slot;
+            }
+        }
+
+        if (nearestSlot != null)
+        {
+            dragOffsetSlot = nearestSlot;
+
+            Vector2 localMousePos;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(rectTransform, eventData.position, eventData.pressEventCamera, out localMousePos);
+            dragOffset = rectTransform.localPosition - nearestSlot.GetComponent<RectTransform>().localPosition;
+        }
     }
+
 
     public void OnDrag(PointerEventData eventData)
     {
-        rectTransform.position = eventData.position;
+        Vector2 localPoint;
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            overlayCanvas.transform as RectTransform,
+            eventData.position,
+            eventData.pressEventCamera,
+            out localPoint
+        );
 
-        // Efface les highlights précédents
-        foreach (var slot in InventoryManager.Instance.slots)
-            slot.ResetHighlight();
-
-        // Vérifie sous la souris
-        GameObject hovered = eventData.pointerCurrentRaycast.gameObject;
-        SlotDrop targetSlot = null;
-
-        if (hovered != null)
-        {
-            targetSlot = hovered.GetComponent<SlotDrop>();
-
-            // Si on est sur un ItemUI, on prend son parent SlotDrop
-            if (targetSlot == null)
-            {
-                ItemUI hoveredItemUI = hovered.GetComponentInParent<ItemUI>();
-                if (hoveredItemUI != null && hoveredItemUI.currentSlot != null)
-                {
-                    targetSlot = hoveredItemUI.currentSlot.GetComponent<SlotDrop>();
-                }
-            }
-        }
-
-        if (targetSlot != null)
-        {
-            Item item = itemUI.itemData;
-
-            int startX = Mathf.Clamp(targetSlot.x, 0, InventoryManager.Instance.width - item.width);
-            int startY = Mathf.Clamp(targetSlot.y, 0, InventoryManager.Instance.height - item.height);
-
-            bool canPlace = InventoryManager.Instance.CanPlaceItem(startX, startY, item, itemUI);
-
-            for (int y = 0; y < item.height; y++)
-            {
-                for (int x = 0; x < item.width; x++)
-                {
-                    int checkX = startX + x;
-                    int checkY = startY + y;
-
-                    if (checkX < InventoryManager.Instance.width && checkY < InventoryManager.Instance.height)
-                    {
-                        Slot slot = InventoryManager.Instance.slots[checkX, checkY];
-                        slot.Highlight(canPlace ? Color.green : Color.red);
-                    }
-                }
-            }
-        }
+        rectTransform.localPosition = localPoint - grabOffset;
     }
 
     public void OnEndDrag(PointerEventData eventData)
@@ -98,9 +71,25 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
         foreach (var slot in InventoryManager.Instance.slots)
             slot.ResetHighlight();
 
-        SlotDrop targetSlot = null;
+        canvasGroup.blocksRaycasts = true;
 
-        // Chercher un SlotDrop sous la souris
+        // --- Détection si on lâche sur un slot d’équipement ---
+        EquipementSlot equipSlot = null;
+        if (eventData.pointerCurrentRaycast.gameObject != null)
+        {
+            var go = eventData.pointerCurrentRaycast.gameObject;
+            equipSlot = go.GetComponentInParent<EquipementSlot>();
+        }
+
+        if (equipSlot != null)
+        {
+            // Appelle directement la logique de placement d’équipement
+            equipSlot.OnDrop(eventData);
+            return;
+        }
+
+        // --- Sinon, on gère le drop dans la grille ---
+        SlotDrop targetSlot = null;
         if (eventData.pointerCurrentRaycast.gameObject != null)
         {
             var go = eventData.pointerCurrentRaycast.gameObject;
@@ -109,18 +98,36 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
 
         bool placed = false;
 
-        if (targetSlot != null)
+        if (targetSlot != null && itemUI != null && itemUI.currentSlot != null)
         {
             placed = InventoryManager.Instance.PlaceItem(itemUI, targetSlot.x, targetSlot.y);
         }
 
-        if (!placed)
+        if (!placed && itemUI.currentSlot != null)
         {
-            // Si drop invalide → retour à la position initiale
-            transform.SetParent(originalParent, false);
-            rectTransform.anchoredPosition = Vector2.zero;
+            // Remet l’item à sa position d’origine si pas placé
+            InventoryManager.Instance.PlaceItem(itemUI, itemUI.currentSlot.x, itemUI.currentSlot.y);
         }
-
-        canvasGroup.blocksRaycasts = true;
     }
+
+
+
+    private float slotWidth
+    {
+        get
+        {
+            RectTransform slotRect = InventoryManager.Instance.slots[0, 0].GetComponent<RectTransform>();
+            return slotRect.sizeDelta.x;
+        }
+    }
+
+    private float slotHeight
+    {
+        get
+        {
+            RectTransform slotRect = InventoryManager.Instance.slots[0, 0].GetComponent<RectTransform>();
+            return slotRect.sizeDelta.y;
+        }
+    }
+
 }

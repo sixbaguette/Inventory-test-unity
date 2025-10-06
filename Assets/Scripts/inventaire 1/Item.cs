@@ -8,4 +8,7 @@ public class Item : ScriptableObject
     public Sprite icon;
     public int width = 1;  // Largeur en slots
     public int height = 1; // Hauteur en slots
+    public bool isEquipable = false; // coche dans l’inspecteur
+
+    public string equipmentType; // Exemples : "Weapon", "Armor", "Tool", "Potion"
 }

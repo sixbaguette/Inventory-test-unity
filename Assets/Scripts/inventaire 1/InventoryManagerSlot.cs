@@ -8,6 +8,7 @@ public class InventoryManager : MonoBehaviour
     public int height = 4;
     public GameObject slotPrefab;
     public Transform slotParent;
+    public Canvas overlayCanvas;
 
     [HideInInspector]
     public Slot[,] slots;
@@ -20,8 +21,23 @@ public class InventoryManager : MonoBehaviour
             return;
         }
         Instance = this;
-
         InitializeGrid();
+    }
+
+    public bool AddItem(Item item)
+    {
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                if (CanPlaceItem(x, y, item, null))
+                {
+                    PlaceItem(itemUI: null, x, y);
+                    return true;
+                }
+            }
+        }
+        return false; // Pas d’espace libre
     }
 
     private void InitializeGrid()
@@ -32,21 +48,20 @@ public class InventoryManager : MonoBehaviour
         {
             for (int x = 0; x < width; x++)
             {
-                GameObject slotGO = Instantiate(slotPrefab, slotParent); // <-- attache au slotParent
+                GameObject slotGO = Instantiate(slotPrefab, slotParent);
                 Slot slot = slotGO.GetComponent<Slot>();
-                slot.Setup(x, y); // <-- définit la position du slot
+                slot.Setup(x, y);
                 slots[x, y] = slot;
 
                 SlotDrop slotDrop = slotGO.GetComponent<SlotDrop>();
                 if (slotDrop != null)
                 {
-                    slotDrop.x = x; // <-- indispensable pour le drag & drop
+                    slotDrop.x = x;
                     slotDrop.y = y;
                 }
             }
         }
     }
-
 
     public bool CanPlaceItem(int startX, int startY, Item item, ItemUI ignoreItemUI = null)
     {
@@ -63,52 +78,63 @@ public class InventoryManager : MonoBehaviour
 
                 Slot slot = slots[checkX, checkY];
 
-                // Si le slot est occupé mais c'est l'item qu'on déplace → on ignore
                 if (slot.HasItem() && slot.GetItem() != ignoreItemUI)
-                {
                     return false;
-                }
             }
         }
 
         return true;
     }
 
-
     public bool PlaceItem(ItemUI itemUI, int startX, int startY)
     {
-        Item item = itemUI.itemData;
+        if (itemUI == null || itemUI.itemData == null) return false;
 
-        // Libère les anciens slots **avant** de tester
-        if (itemUI.currentSlot != null)
+        Item item = itemUI.itemData;
+        Slot previousSlot = itemUI.currentSlot;
+
+        if (itemUI.occupiedSlots != null)
         {
             foreach (var slot in itemUI.occupiedSlots)
                 slot.ClearItem();
         }
 
-        if (!CanPlaceItem(startX, startY, item))
+        if (!CanPlaceItem(startX, startY, item, itemUI))
         {
-            // Re-assigner les anciens slots car on ne peut pas placer
-            itemUI.SetOccupiedSlots(itemUI.currentSlot.x, itemUI.currentSlot.y, item.width, item.height);
+            if (previousSlot != null)
+                itemUI.SetOccupiedSlots(previousSlot.x, previousSlot.y, item.width, item.height);
+
             foreach (var slot in itemUI.occupiedSlots)
                 slot.SetItem(itemUI);
 
             return false;
         }
 
-        // Réattribue les nouveaux slots
         itemUI.SetOccupiedSlots(startX, startY, item.width, item.height);
+
         foreach (var slot in itemUI.occupiedSlots)
             slot.SetItem(itemUI);
 
-        // Positionne précisément l’item
-        Slot targetSlot = slots[startX, startY];
-        itemUI.transform.SetParent(targetSlot.transform, false);
-        itemUI.transform.localPosition = Vector3.zero;
+        Vector3 minPos = itemUI.occupiedSlots[0].transform.localPosition;
+        Vector3 maxPos = minPos;
 
+        foreach (var slot in itemUI.occupiedSlots)
+        {
+            Vector3 pos = slot.transform.localPosition;
+            minPos = Vector3.Min(minPos, pos);
+            maxPos = Vector3.Max(maxPos, pos);
+        }
+
+        Vector3 center = (minPos + maxPos) / 2f;
+
+        Slot targetSlot = slots[startX, startY];
+        itemUI.transform.SetParent(targetSlot.transform.parent, false);
+        itemUI.transform.localPosition = center;
         itemUI.currentSlot = targetSlot;
+        itemUI.UpdateOutline();
+
+        itemUI.transform.SetParent(overlayCanvas.transform, true);
 
         return true;
     }
-
 }

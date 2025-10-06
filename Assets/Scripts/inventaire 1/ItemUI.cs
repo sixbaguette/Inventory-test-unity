@@ -8,12 +8,14 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     public Image icon;
     public Slot currentSlot;
     public Slot[] occupiedSlots;
+    public int originSlotX;
+    public int originSlotY;
+    public Item item;
 
-    [Header("UI Contour")]
-    public Image outline; // <- référence à ton contour visuel
+
+    public Image outline;
 
     private Tooltip tooltip;
-
     private float hoverTime = 2f;
     private float timer = 0f;
     private bool isHovering = false;
@@ -25,7 +27,6 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     private void Awake()
     {
         rectTransform = GetComponent<RectTransform>();
-
         tooltip = FindFirstObjectByType<Tooltip>();
 
         if (itemData != null)
@@ -43,6 +44,7 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         }
 
         UpdateOutline();
+        UpdateSize();
     }
 
     public void UpdateOutline()
@@ -72,23 +74,13 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         outline.rectTransform.pivot = new Vector2(0, 1);
         outline.rectTransform.sizeDelta = totalSize + margin;
         outline.rectTransform.anchoredPosition = new Vector2(-margin.x / 2f, margin.y / 2f);
-
-        // Rendu toujours au-dessus
-        Canvas outlineCanvas = outline.GetComponent<Canvas>();
-        if (outlineCanvas == null)
-            outlineCanvas = outline.gameObject.AddComponent<Canvas>();
-
-        outlineCanvas.overrideSorting = true;
-        outlineCanvas.sortingOrder = 9999;
-
-        outline.transform.SetAsLastSibling();
     }
 
     public void SetOccupiedSlots(int startX, int startY, int width, int height)
     {
         occupiedSlots = new Slot[width * height];
-
         int index = 0;
+
         for (int y = 0; y < height; y++)
         {
             for (int x = 0; x < width; x++)
@@ -97,6 +89,25 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
                 index++;
             }
         }
+    }
+
+    public void UpdateSize()
+    {
+        RectTransform slotRect = InventoryManager.Instance.slots[0, 0].GetComponent<RectTransform>();
+        Vector2 slotSize = slotRect.sizeDelta;
+
+        float spacingX = 0f, spacingY = 0f;
+        var grid = InventoryManager.Instance.slotParent.GetComponent<UnityEngine.UI.GridLayoutGroup>();
+        if (grid != null)
+        {
+            spacingX = grid.spacing.x;
+            spacingY = grid.spacing.y;
+        }
+
+        rectTransform.sizeDelta = new Vector2(
+            (itemData.width * slotSize.x) + ((itemData.width - 1) * spacingX),
+            (itemData.height * slotSize.y) + ((itemData.height - 1) * spacingY)
+        );
     }
 
     public void OnPointerEnter(PointerEventData eventData)
