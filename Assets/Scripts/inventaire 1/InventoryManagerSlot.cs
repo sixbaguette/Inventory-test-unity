@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using UnityEngine.UIElements;
 
 public class InventoryManager : MonoBehaviour
 {
@@ -62,7 +63,7 @@ public class InventoryManager : MonoBehaviour
             }
         }
     }
-
+    
     public bool CanPlaceItem(int startX, int startY, Item item, ItemUI ignoreItemUI = null)
     {
         if (item == null) return false;
@@ -85,6 +86,7 @@ public class InventoryManager : MonoBehaviour
 
         return true;
     }
+
 
     public bool PlaceItem(ItemUI itemUI, int startX, int startY)
     {
