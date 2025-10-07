@@ -27,13 +27,9 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     [HideInInspector]
     public Vector2 originalSize;
     [HideInInspector]
-    public Transform originalParent;
-    [HideInInspector]
-    public Vector3 originalPosition;
-    [HideInInspector]
-    public Vector2 originalAnchoredPosition;
-    [HideInInspector]
     public Vector2 originalOutlineSize;
+    [HideInInspector]
+    public Transform originalParent;
 
     private void Awake()
     {

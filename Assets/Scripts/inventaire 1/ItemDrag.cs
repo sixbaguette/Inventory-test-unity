@@ -23,27 +23,22 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
 
     public void OnBeginDrag(PointerEventData eventData)
     {
+        // ✅ Libère le slot équipement si l’item vient d’un slot équipement
+        EquipementSlot oldEquipSlot = GetComponentInParent<EquipementSlot>();
+        if (oldEquipSlot != null)
+        {
+            oldEquipSlot.ForceClear(itemUI);
+        }
+
         originalParent = transform.parent;
         transform.SetParent(overlayCanvas.transform, true);
         transform.SetAsLastSibling();
         canvasGroup.blocksRaycasts = false;
-
-        // Si on drag depuis un slot équipement, restore l’état
-        EquipementSlot equipSlot = GetComponentInParent<EquipementSlot>();
-        if (equipSlot != null && equipSlot.CurrentItem == itemUI)
-        {
-            equipSlot.UnequipItem();
-        }
 
         CanvasGroup cg = itemUI.GetComponent<CanvasGroup>();
         if (cg != null) cg.blocksRaycasts = false;
 
-        originalParent = transform.parent;
-        transform.SetParent(overlayCanvas.transform, true);
-        transform.SetAsLastSibling();
-        canvasGroup.blocksRaycasts = false;
-
-        // Trouver le slot le plus proche de la souris
+        // Trouver le slot le plus proche de la souris (pour le drag offset)
         Slot nearestSlot = null;
         float minDist = float.MaxValue;
 
@@ -66,6 +61,7 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
             dragOffset = rectTransform.localPosition - nearestSlot.GetComponent<RectTransform>().localPosition;
         }
     }
+
 
 
     public void OnDrag(PointerEventData eventData)
