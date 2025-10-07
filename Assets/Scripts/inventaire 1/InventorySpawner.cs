@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using System.Collections;
 
 public class InventorySpawner : MonoBehaviour
@@ -9,7 +9,7 @@ public class InventorySpawner : MonoBehaviour
 
     private IEnumerator Start()
     {
-        yield return null; // Attend la fin d’Awake de tous les objets
+        yield return null; // Attend la fin dâ€™Awake de tous les objets
 
         inventoryManager = FindFirstObjectByType<InventoryManager>();
         canvas = FindFirstObjectByType<Canvas>();
@@ -37,11 +37,11 @@ public class InventorySpawner : MonoBehaviour
 
         if (items.Length == 0)
         {
-            Debug.LogWarning("[InventorySpawner] Aucun Item trouvé dans Resources/Items");
+            Debug.LogWarning("[InventorySpawner] Aucun Item trouvÃ© dans Resources/Items");
             yield break;
         }
 
-        Debug.Log($"[InventorySpawner] {items.Length} items trouvés");
+        Debug.Log($"[InventorySpawner] {items.Length} items trouvÃ©s");
 
         foreach (var item in items)
         {
