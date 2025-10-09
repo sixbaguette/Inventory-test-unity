@@ -1,9 +1,9 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using UnityEngine.UI;
 
 public class InventoryToggle : MonoBehaviour
 {
-    [Header("Références UI")]
+    [Header("RÃ©fÃ©rences UI")]
     public GameObject inventoryUI;       // Le parent des slots et items
     public KeyCode toggleKey = KeyCode.I; // Touche pour ouvrir/fermer
 
@@ -17,9 +17,12 @@ public class InventoryToggle : MonoBehaviour
         if (toggleButton != null)
             toggleButton.onClick.AddListener(ToggleInventory);
 
-        // Cache tout au démarrage
+        // ðŸ”¥ Active temporairement le Canvas pour initialiser la grille
+        inventoryUI.SetActive(true);
+        InventoryManager.Instance.InitializeGrid();
         inventoryUI.SetActive(false);
     }
+
 
     private void Update()
     {
@@ -35,7 +38,7 @@ public class InventoryToggle : MonoBehaviour
         inventoryUI.SetActive(isOpen);
         //InventoryManager.Instance.SetInventoryVisible(isOpen);
 
-        // Optionnel : on bloque le curseur si fermé
+        // Optionnel : on bloque le curseur si fermÃ©
         Cursor.visible = isOpen;
         Cursor.lockState = isOpen ? CursorLockMode.None : CursorLockMode.Locked;
     }

@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.EventSystems;
 
 public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
@@ -18,8 +19,22 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
         itemUI = GetComponent<ItemUI>();
         rectTransform = GetComponent<RectTransform>();
         canvasGroup = GetComponent<CanvasGroup>();
-        overlayCanvas = FindFirstObjectByType<Canvas>();
+
+        // Recherche le canvas du DragCanvas
+        foreach (Canvas c in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+        {
+            if (c.name == "Canvas" && c.transform.parent != null && c.transform.parent.name == "DragCanvas")
+            {
+                overlayCanvas = c;
+                break;
+            }
+        }
+
+        // fallback au premier canvas trouvé (au cas où)
+        if (overlayCanvas == null)
+            overlayCanvas = FindFirstObjectByType<Canvas>();
     }
+
 
     public void OnBeginDrag(PointerEventData eventData)
     {
@@ -81,18 +96,18 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
     public void OnEndDrag(PointerEventData eventData)
     {
         if (!enabled) return;
+
+        // Réinitialise les highlights
         foreach (var slot in InventoryManager.Instance.slots)
             slot.ResetHighlight();
 
+        // Réactive les raycasts sur cet item
         canvasGroup.blocksRaycasts = true;
 
-        // --- Détection si on lâche sur un slot d’équipement ---
-        EquipementSlot equipSlot = null;
-        if (eventData.pointerCurrentRaycast.gameObject != null)
-        {
-            var go = eventData.pointerCurrentRaycast.gameObject;
-            equipSlot = go.GetComponentInParent<EquipementSlot>();
-        }
+        // --- 1️⃣ Vérifie si on lâche sur un slot d’équipement ---
+        EquipementSlot equipSlot = eventData.pointerCurrentRaycast.gameObject
+            ? eventData.pointerCurrentRaycast.gameObject.GetComponentInParent<EquipementSlot>()
+            : null;
 
         if (equipSlot != null)
         {
@@ -101,27 +116,39 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
             return;
         }
 
-        // --- Sinon, on gère le drop dans la grille ---
-        SlotDrop targetSlot = null;
-        if (eventData.pointerCurrentRaycast.gameObject != null)
+        // --- 2️⃣ Vérifie si on lâche sur un slot de grille ---
+        SlotDrop targetSlot = eventData.pointerCurrentRaycast.gameObject
+            ? eventData.pointerCurrentRaycast.gameObject.GetComponentInParent<SlotDrop>()
+            : null;
+
+        // Si aucun objet sous la souris, on tente un raycast manuel (plus fiable)
+        if (targetSlot == null)
         {
-            var go = eventData.pointerCurrentRaycast.gameObject;
-            targetSlot = go.GetComponentInParent<SlotDrop>();
+            var results = new List<RaycastResult>();
+            EventSystem.current.RaycastAll(eventData, results);
+
+            foreach (var result in results)
+            {
+                targetSlot = result.gameObject.GetComponentInParent<SlotDrop>();
+                if (targetSlot != null) break;
+            }
         }
 
         bool placed = false;
 
-        if (targetSlot != null && itemUI != null && itemUI.currentSlot != null)
+        // --- 3️⃣ Si on a bien trouvé un slot valide, on tente le placement ---
+        if (targetSlot != null && itemUI != null)
         {
             placed = InventoryManager.Instance.PlaceItem(itemUI, targetSlot.x, targetSlot.y);
         }
 
+        // --- 4️⃣ Si aucun placement valide, on remet l’objet à sa place d’origine ---
         if (!placed && itemUI.currentSlot != null)
         {
-            // Remet l’item à sa position d’origine si pas placé
             InventoryManager.Instance.PlaceItem(itemUI, itemUI.currentSlot.x, itemUI.currentSlot.y);
         }
     }
+
 
     private float slotWidth
     {

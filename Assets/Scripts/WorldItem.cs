@@ -8,8 +8,7 @@ public class WorldItem : MonoBehaviour
     // Appelé quand l’objet est ramassé
     public void OnPickedUp()
     {
-        // Simplement désactive le GameObject 3D
-        gameObject.SetActive(false);
+        Destroy(gameObject);
     }
 
     // (Optionnel) pour le faire respawn

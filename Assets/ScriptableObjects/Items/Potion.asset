@@ -10,14 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c115733830494f941b0de54785fd4664, type: 3}
-  m_Name: test
+  m_Name: Potion
   m_EditorClassIdentifier: 
   itemName: Potion
-  description: donne de la vie
+  prefabName: peut soigner
+  description: 
   icon: {fileID: 10913, guid: 0000000000000000f000000000000000, type: 0}
   width: 2
   height: 2
   isEquipable: 1
   equipmentType: Weapon
-  worldPrefab: {fileID: 8783013240693847777, guid: b1f8caaaf060c0b4298db4f41417ad6e, type: 3}
-  prefabName: Potion
+  worldPrefab: {fileID: 7270623352238282856, guid: 4c52b5c79894e4340bd96bda37ad22cf, type: 3}

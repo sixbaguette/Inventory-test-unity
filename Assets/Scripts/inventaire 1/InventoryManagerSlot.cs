@@ -6,7 +6,7 @@ public class InventoryManager : MonoBehaviour
     public static InventoryManager Instance;
 
     public int width = 6;
-    public int height = 4;
+    public int height = 5;
     public GameObject slotPrefab;
     public Transform slotParent;           // parent des slots (GridLayoutGroup)
     public GameObject itemUIPrefab;        // prefab UI (ItemUI) pour AddItem()
@@ -21,18 +21,25 @@ public class InventoryManager : MonoBehaviour
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
+
+        // S’assure que la grille est prête
         InitializeGrid();
     }
 
-    private void InitializeGrid()
-    {
-        slots = new Slot[width, height];
 
+    public void InitializeGrid()
+    {
         if (slotParent == null)
         {
             Debug.LogError("[InventoryManager] slotParent non assigné !");
             return;
         }
+
+        // 🔄 Détruit les anciens slots si réinitialisation
+        foreach (Transform child in slotParent)
+            Destroy(child.gameObject);
+
+        slots = new Slot[width, height];
 
         for (int y = 0; y < height; y++)
         {
@@ -40,6 +47,12 @@ public class InventoryManager : MonoBehaviour
             {
                 GameObject slotGO = Instantiate(slotPrefab, slotParent);
                 Slot slot = slotGO.GetComponent<Slot>();
+                if (slot == null)
+                {
+                    Debug.LogError("[InventoryManager] SlotPrefab n’a pas de script Slot !");
+                    continue;
+                }
+
                 slot.Setup(x, y);
                 slots[x, y] = slot;
 
@@ -47,7 +60,10 @@ public class InventoryManager : MonoBehaviour
                 if (sd != null) { sd.x = x; sd.y = y; }
             }
         }
+
+        Debug.Log($"[InventoryManager] Grille initialisée ({width}x{height})");
     }
+
 
     public bool CanPlaceItem(int startX, int startY, ItemData item, ItemUI ignoreItemUI = null)
     {
@@ -144,6 +160,7 @@ public class InventoryManager : MonoBehaviour
         RectTransform slotRect = targetSlot.GetComponent<RectTransform>();
 
         itemUI.transform.SetParent(targetSlot.transform, false);
+        itemUI.transform.SetAsLastSibling();
 
         // Ajuste le rect transform du ItemUI à la taille occupée (en slots)
         float spacingX = 0f, spacingY = 0f;
@@ -179,7 +196,7 @@ public class InventoryManager : MonoBehaviour
             return false;
         }
 
-        GameObject go = Instantiate(itemUIPrefab, slotParent);
+        GameObject go = Instantiate(itemUIPrefab, slotParent.parent.Find("ItemsParent"));
         ItemUI itemUI = go.GetComponent<ItemUI>();
         if (itemUI == null)
         {

@@ -65,10 +65,10 @@ public class PlayerPickupManager : MonoBehaviour
     {
         if (inventoryManager == null) return;
 
-        Item removed = inventoryManager.RemoveLastItem();
+        ItemData removed = inventoryManager.RemoveLastItem();
         if (removed == null) return;
 
-        // Spawn devant le joueur si worldPrefab assigné
+        // Spawn devant le joueur
         if (removed.worldPrefab != null)
         {
             Vector3 spawnPos = playerTransform.position + playerTransform.forward * 1.5f + Vector3.up * 0.3f;
