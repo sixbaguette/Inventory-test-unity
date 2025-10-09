@@ -4,95 +4,93 @@ using UnityEngine.UI;
 
 public class EquipementSlot : MonoBehaviour, IDropHandler
 {
-    public string slotType; // ex: "Weapon", "Armor"
+    public string slotType; // ex "Weapon", "Armor", or empty = accept any
     public Image iconDisplay;
 
     private ItemUI currentItem;
     public ItemUI CurrentItem => currentItem;
 
-    public bool IsCompatible(Item item)
+    public bool IsCompatible(ItemData item)
     {
-        // Si tu veux autoriser tout type d’item, remplace par : return item != null;
-        return item != null && (string.IsNullOrEmpty(slotType) || item.equipmentType == slotType);
+        if (item == null) return false;
+        if (string.IsNullOrEmpty(slotType)) return true;
+        return item.equipmentType == slotType;
     }
 
     public void OnDrop(PointerEventData eventData)
     {
-        var draggedItemUI = eventData.pointerDrag?.GetComponent<ItemUI>();
-        if (draggedItemUI == null) return;
+        var droppedUI = eventData.pointerDrag?.GetComponent<ItemUI>();
+        if (droppedUI == null) return;
 
-        var item = draggedItemUI.itemData;
-        if (!IsCompatible(item)) return;
+        if (!IsCompatible(droppedUI.itemData)) return;
+        if (currentItem != null) { Debug.Log("Slot déjà occupé"); return; }
 
-        // Si un item est déjà présent, on empêche le drop
-        if (currentItem != null)
-        {
-            Debug.Log("⚠️ Slot déjà occupé !");
-            return;
-        }
-
-        EquipItem(draggedItemUI);
+        EquipItem(droppedUI);
     }
 
     private void EquipItem(ItemUI itemUI)
     {
         if (itemUI == null) return;
 
-        // Sauvegarde l’état d’origine (taille, parent, ancrage, etc.)
+        // Clear inventory slots occupied by this item (it is removed from inventory)
+        if (itemUI.occupiedSlots != null)
+        {
+            foreach (var s in itemUI.occupiedSlots) if (s != null) s.ClearItem();
+        }
+
         itemUI.StoreOriginalState();
 
         currentItem = itemUI;
 
-        // On met le parent = ce slot
+        // parent -> this slot
         itemUI.transform.SetParent(transform, false);
 
-        // On force le centrage et la taille du slot
-        RectTransform itemRect = itemUI.rectTransform;
-        RectTransform slotRect = GetComponent<RectTransform>();
+        // center & size
+        RectTransform it = itemUI.rectTransform;
+        RectTransform sr = GetComponent<RectTransform>();
+        it.anchorMin = new Vector2(0.5f, 0.5f);
+        it.anchorMax = new Vector2(0.5f, 0.5f);
+        it.pivot = new Vector2(0.5f, 0.5f);
+        it.anchoredPosition = Vector2.zero;
+        it.sizeDelta = sr.sizeDelta;
 
-        itemRect.anchorMin = new Vector2(0.5f, 0.5f);
-        itemRect.anchorMax = new Vector2(0.5f, 0.5f);
-        itemRect.pivot = new Vector2(0.5f, 0.5f);
-        itemRect.anchoredPosition = Vector2.zero;
-        itemRect.sizeDelta = slotRect.sizeDelta;
-
-        // Redimensionne et centre l’outline
         if (itemUI.outline != null)
         {
-            RectTransform outlineRect = itemUI.outline.rectTransform;
-            outlineRect.anchorMin = new Vector2(0.5f, 0.5f);
-            outlineRect.anchorMax = new Vector2(0.5f, 0.5f);
-            outlineRect.pivot = new Vector2(0.5f, 0.5f);
-            outlineRect.anchoredPosition = Vector2.zero;
-            outlineRect.sizeDelta = slotRect.sizeDelta;
+            var or = itemUI.outline.rectTransform;
+            or.anchorMin = new Vector2(0.5f, 0.5f);
+            or.anchorMax = new Vector2(0.5f, 0.5f);
+            or.pivot = new Vector2(0.5f, 0.5f);
+            or.anchoredPosition = Vector2.zero;
+            or.sizeDelta = sr.sizeDelta;
         }
 
-        // Optionnel : si tu veux cacher l’icône du slot quand quelque chose est équipé
-        if (iconDisplay != null)
-            iconDisplay.enabled = false;
+        if (iconDisplay != null) iconDisplay.enabled = false;
     }
 
     public void UnequipItem()
     {
         if (currentItem == null) return;
 
-        // ✅ Restaure taille + position + parent d’origine
-        currentItem.RestoreOriginalState();
+        // essaye de remettre dans l'inventaire au premier emplacement libre
+        if (InventoryManager.Instance.FindFirstFreePosition(currentItem.itemData, out int x, out int y))
+        {
+            // PlaceItem remet parent et taille correctement
+            InventoryManager.Instance.PlaceItem(currentItem, x, y);
+        }
+        else
+        {
+            // pas de place : restaure à l'état original (parent + size)
+            currentItem.RestoreOriginalState();
+        }
 
-        // ✅ Nettoie la référence (sinon “Slot déjà occupé” persiste)
         currentItem = null;
 
-        // ✅ Réactive l’icône du slot si besoin
-        if (iconDisplay != null)
-            iconDisplay.enabled = true;
+        if (iconDisplay != null) iconDisplay.enabled = true;
     }
 
-    // Appelée par ton ItemDrag quand on retire un objet du slot équipement
+    // utilitaire appelé depuis ItemDrag si on commence un drag depuis ce slot
     public void ForceClear(ItemUI itemUI)
     {
-        if (currentItem == itemUI)
-        {
-            UnequipItem();
-        }
+        if (currentItem == itemUI) UnequipItem();
     }
 }

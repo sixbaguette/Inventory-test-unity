@@ -11,23 +11,24 @@ public class Tooltip : MonoBehaviour
 
     private void Awake()
     {
-        initialPosition = transform.position; // sauvegarde la position de départ
+        initialPosition = transform.position;
         Hide();
     }
 
-    public void Show(Item item)
+    // NOTE : on utilise ItemData (ton ScriptableObject actuel)
+    public void Show(ItemData item)
     {
         if (item == null) return;
 
-        itemNameText.text = item.itemName;
-        itemDescriptionText.text = item.description;
+        if (itemNameText != null) itemNameText.text = item.itemName;
+        if (itemDescriptionText != null) itemDescriptionText.text = item.description;
 
-        background.SetActive(true);
-        transform.position = initialPosition; // fixe la position à l'origine
+        if (background != null) background.SetActive(true);
+        transform.position = initialPosition;
     }
 
     public void Hide()
     {
-        background.SetActive(false);
+        if (background != null) background.SetActive(false);
     }
 }

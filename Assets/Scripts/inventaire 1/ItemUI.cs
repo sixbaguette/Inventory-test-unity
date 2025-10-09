@@ -4,99 +4,101 @@ using UnityEngine.EventSystems;
 
 public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
-    public Item itemData;
+    public ItemData itemData;
     public Image icon;
+    public Image outline;
     public Slot currentSlot;
     public Slot[] occupiedSlots;
-    public int originSlotX;
-    public int originSlotY;
-    public Item item;
-    public Image outline;
 
+    [HideInInspector] public RectTransform rectTransform { get; private set; }
+
+    // sauvegarde état d'origine (avant equip / resize)
+    private Vector2 originalSize;
+    private Vector2 originalOutlineSize;
+    private Vector2 originalAnchorMin;
+    private Vector2 originalAnchorMax;
+    private Vector2 originalPivot;
+    private Vector2 originalAnchoredPos;
+    private Transform originalParent;
 
     private Tooltip tooltip;
-    private float hoverTime = 2f;
-    private float timer = 0f;
     private bool isHovering = false;
     private bool tooltipVisible = false;
-
-    [HideInInspector]
-    public RectTransform rectTransform { get; private set; }
-    private bool originalSizeStored = false;
-    public int originalSiblingIndex { get; private set; }
-    [HideInInspector]
-    public Vector2 originalSize;
-    [HideInInspector]
-    public Vector2 originalOutlineSize;
-    [HideInInspector]
-    public Transform originalParent;
+    private float hoverTime = 1f;
+    private float timer = 0f;
 
     private void Awake()
     {
         rectTransform = GetComponent<RectTransform>();
         tooltip = FindFirstObjectByType<Tooltip>();
-
-        if (itemData != null)
-            Setup(itemData);
-
-        StoreOriginalState();
+        StoreOriginalState(); // stocke l'état initial
     }
 
-    public void Setup(Item newItemData)
+    public void Setup(ItemData newItemData)
     {
         itemData = newItemData;
-
         if (icon != null && itemData.icon != null)
         {
             icon.sprite = itemData.icon;
             icon.enabled = true;
         }
 
-        UpdateOutline();
         UpdateSize();
-
+        UpdateOutline();
         StoreOriginalState();
     }
 
     public void StoreOriginalState()
     {
+        if (rectTransform == null) rectTransform = GetComponent<RectTransform>();
         originalSize = rectTransform.sizeDelta;
-        if (outline != null)
-            originalOutlineSize = outline.rectTransform.sizeDelta;
-
+        if (outline != null) originalOutlineSize = outline.rectTransform.sizeDelta;
+        originalAnchorMin = rectTransform.anchorMin;
+        originalAnchorMax = rectTransform.anchorMax;
+        originalPivot = rectTransform.pivot;
+        originalAnchoredPos = rectTransform.anchoredPosition;
         originalParent = transform.parent;
     }
 
     public void RestoreOriginalState()
     {
+        rectTransform.SetParent(originalParent, false);
+        rectTransform.anchorMin = originalAnchorMin;
+        rectTransform.anchorMax = originalAnchorMax;
+        rectTransform.pivot = originalPivot;
+        rectTransform.anchoredPosition = originalAnchoredPos;
         rectTransform.sizeDelta = originalSize;
-        if (outline != null)
-            outline.rectTransform.sizeDelta = originalOutlineSize;
-
-        transform.SetParent(originalParent, false);
-    }
-
-    public void ResizeTo(Vector2 newSize)
-    {
-        rectTransform.sizeDelta = newSize;
+        if (outline != null) outline.rectTransform.sizeDelta = originalOutlineSize;
         UpdateOutline();
     }
 
-    public void UpdateOutline()
+    public void UpdateSize()
     {
-        if (outline == null || itemData == null || InventoryManager.Instance == null)
-            return;
+        if (itemData == null || InventoryManager.Instance == null) return;
 
         RectTransform slotRect = InventoryManager.Instance.slots[0, 0].GetComponent<RectTransform>();
         Vector2 slotSize = slotRect.sizeDelta;
 
         float spacingX = 0f, spacingY = 0f;
         var grid = InventoryManager.Instance.slotParent.GetComponent<UnityEngine.UI.GridLayoutGroup>();
-        if (grid != null)
-        {
-            spacingX = grid.spacing.x;
-            spacingY = grid.spacing.y;
-        }
+        if (grid != null) { spacingX = grid.spacing.x; spacingY = grid.spacing.y; }
+
+        rectTransform.sizeDelta = new Vector2(
+            (itemData.width * slotSize.x) + ((itemData.width - 1) * spacingX),
+            (itemData.height * slotSize.y) + ((itemData.height - 1) * spacingY)
+        );
+    }
+
+    public void UpdateOutline()
+    {
+        if (outline == null || itemData == null || InventoryManager.Instance == null) return;
+
+        RectTransform slotRect = InventoryManager.Instance.slots[0, 0].GetComponent<RectTransform>();
+        Vector2 slotSize = slotRect.sizeDelta;
+
+        float spacingX = 0f, spacingY = 0f;
+        var grid = InventoryManager.Instance.slotParent.GetComponent<UnityEngine.UI.GridLayoutGroup>();
+        if (grid != null) { spacingX = grid.spacing.x; spacingY = grid.spacing.y; }
 
         Vector2 totalSize = new Vector2(
             (itemData.width * slotSize.x) + ((itemData.width - 1) * spacingX),
@@ -115,52 +117,18 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         occupiedSlots = new Slot[width * height];
         int index = 0;
-
-        for (int y = 0; y < height; y++)
+        for (int yy = 0; yy < height; yy++)
         {
-            for (int x = 0; x < width; x++)
+            for (int xx = 0; xx < width; xx++)
             {
-                occupiedSlots[index] = InventoryManager.Instance.slots[startX + x, startY + y];
+                occupiedSlots[index] = InventoryManager.Instance.slots[startX + xx, startY + yy];
                 index++;
             }
         }
     }
 
-    public void UpdateSize()
-    {
-        RectTransform slotRect = InventoryManager.Instance.slots[0, 0].GetComponent<RectTransform>();
-        Vector2 slotSize = slotRect.sizeDelta;
-
-        float spacingX = 0f, spacingY = 0f;
-        var grid = InventoryManager.Instance.slotParent.GetComponent<UnityEngine.UI.GridLayoutGroup>();
-        if (grid != null)
-        {
-            spacingX = grid.spacing.x;
-            spacingY = grid.spacing.y;
-        }
-
-        rectTransform.sizeDelta = new Vector2(
-            (itemData.width * slotSize.x) + ((itemData.width - 1) * spacingX),
-            (itemData.height * slotSize.y) + ((itemData.height - 1) * spacingY)
-        );
-
-        UpdateOutline();
-    }
-
-    public void OnPointerEnter(PointerEventData eventData)
-    {
-        isHovering = true;
-        timer = 0f;
-        tooltipVisible = false;
-    }
-
-    public void OnPointerExit(PointerEventData eventData)
-    {
-        isHovering = false;
-        if (tooltipVisible && tooltip != null)
-            tooltip.Hide();
-        tooltipVisible = false;
-    }
+    public void OnPointerEnter(PointerEventData eventData) { isHovering = true; timer = 0f; tooltipVisible = false; }
+    public void OnPointerExit(PointerEventData eventData) { isHovering = false; if (tooltipVisible && tooltip != null) tooltip.Hide(); tooltipVisible = false; }
 
     private void Update()
     {
