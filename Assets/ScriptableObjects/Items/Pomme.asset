@@ -12,12 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c115733830494f941b0de54785fd4664, type: 3}
   m_Name: Pomme
   m_EditorClassIdentifier: 
-  itemName: 
-  prefabName: 
-  description: 
+  itemName: Pomme
+  prefabName: Pomme
+  description: Pomme
   icon: {fileID: 0}
-  width: 1
-  height: 1
+  width: 3
+  height: 3
   isEquipable: 0
   equipmentType: 
-  worldPrefab: {fileID: 0}
+  worldPrefab: {fileID: 3508697957024044450, guid: 11278ef1ee7679d46907b02e98dfbf53, type: 3}
+  isStackable: 1
+  maxStack: 5

@@ -148,7 +148,7 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
         var inv = InventoryManager.Instance;
         if (inv == null || itemUI == null || itemUI.itemData == null) return;
 
-        // 1) Si on lâche sur un slot d’équipement → priorité
+        // 1️⃣ Si on lâche sur un slot d’équipement → priorité
         EquipementSlot equipSlot = null;
         if (eventData.pointerCurrentRaycast.gameObject != null)
             equipSlot = eventData.pointerCurrentRaycast.gameObject.GetComponentInParent<EquipementSlot>();
@@ -156,12 +156,35 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
         if (equipSlot != null && equipSlot.IsCompatible(itemUI.itemData))
         {
             equipSlot.OnDrop(eventData);
+
             if (inv.slots != null)
-                foreach (var s in inv.slots) if (s != null) s.ResetHighlight();
+            {
+                foreach (var s in inv.slots)
+                    if (s != null) s.ResetHighlight();
+            }
             return;
         }
 
-        // 2) Sinon snap grille par slot le plus proche (en écran)
+        // 2️⃣ ✅ Fusion automatique si on lâche sur un autre item identique
+        if (eventData.pointerCurrentRaycast.gameObject != null)
+        {
+            ItemUI targetUI = eventData.pointerCurrentRaycast.gameObject.GetComponentInParent<ItemUI>();
+            if (targetUI != null && targetUI != itemUI)
+            {
+                if (InventoryManager.Instance.TryMergeStacks(itemUI, targetUI))
+                {
+                    // fusion faite → on sort
+                    if (inv.slots != null)
+                    {
+                        foreach (var s in inv.slots)
+                            if (s != null) s.ResetHighlight();
+                    }
+                    return;
+                }
+            }
+        }
+
+        // 3️⃣ Sinon snap grille par slot le plus proche (en écran)
         if (inv.slots == null || inv.slotParent == null) return;
 
         foreach (var s in inv.slots)
@@ -174,6 +197,7 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
         float bestDist = float.MaxValue;
         int bestX = -1, bestY = -1;
 
+        // Recherche du slot le plus proche de la souris (en coordonnées écran)
         for (int y = 0; y < inv.height; y++)
         {
             for (int x = 0; x < inv.width; x++)
@@ -222,10 +246,12 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
                 }
             }
 
+            // Si impossible → retour à l’ancien emplacement
             if (!placed && itemUI.currentSlot != null)
                 inv.PlaceItem(itemUI, itemUI.currentSlot.x, itemUI.currentSlot.y);
         }
 
         canvasGroup.blocksRaycasts = true;
     }
+
 }

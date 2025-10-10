@@ -1,4 +1,4 @@
-// PlayerPickupManager.cs
+﻿// PlayerPickupManager.cs
 using UnityEngine;
 
 public class PlayerPickupManager : MonoBehaviour
@@ -8,8 +8,11 @@ public class PlayerPickupManager : MonoBehaviour
     public KeyCode dropKey = KeyCode.P;
     public float pickupRange = 2f;
 
+    private bool isDropping = false;
     private InventoryManager inventoryManager;
     private Transform playerTransform;
+    [SerializeField] private Transform dropPoint;
+
 
     private void Awake()
     {
@@ -63,16 +66,57 @@ public class PlayerPickupManager : MonoBehaviour
 
     private void TryDrop()
     {
-        if (inventoryManager == null) return;
+        if (isDropping) return;
+        isDropping = true;
 
-        ItemData removed = inventoryManager.RemoveLastItem();
-        if (removed == null) return;
-
-        // Spawn devant le joueur
-        if (removed.worldPrefab != null)
+        var inv = InventoryManager.Instance;
+        if (inv == null)
         {
-            Vector3 spawnPos = playerTransform.position + playerTransform.forward * 1.5f + Vector3.up * 0.3f;
-            Instantiate(removed.worldPrefab, spawnPos, Quaternion.identity);
+            isDropping = false;
+            return;
         }
+
+        ItemUI lastItem = inv.GetLastItem();
+        if (lastItem == null || lastItem.itemData == null)
+        {
+            isDropping = false;
+            return;
+        }
+
+        Vector3 dropPos = dropPoint != null
+            ? dropPoint.position
+            : transform.position + transform.forward * 1.5f + Vector3.up * 0.5f;
+
+        // === CAS 1 : stackable ===
+        if (lastItem.itemData.isStackable)
+        {
+            if (lastItem.currentStack > 1)
+            {
+                // drop UN seul item du stack
+                Instantiate(lastItem.itemData.worldPrefab, dropPos, Quaternion.identity);
+
+                lastItem.currentStack--;
+                lastItem.UpdateStackText();
+
+                Debug.Log($"Drop 1 {lastItem.itemData.itemName}. Reste : {lastItem.currentStack}");
+            }
+            else
+            {
+                // dernier item du stack → drop et retire de l’inventaire
+                Instantiate(lastItem.itemData.worldPrefab, dropPos, Quaternion.identity);
+                inv.RemoveItem(lastItem);
+                Debug.Log($"Drop complet de {lastItem.itemData.itemName}");
+            }
+
+            isDropping = false;
+            return;
+        }
+
+        // === CAS 2 : non stackable ===
+        Instantiate(lastItem.itemData.worldPrefab, dropPos, Quaternion.identity);
+        inv.RemoveItem(lastItem);
+
+        Debug.Log($"Drop item unique {lastItem.itemData.itemName}");
+        isDropping = false;
     }
 }

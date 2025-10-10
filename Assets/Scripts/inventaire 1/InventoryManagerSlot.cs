@@ -101,15 +101,55 @@ public class InventoryManager : MonoBehaviour
         ItemUI ui = inventoryItems[inventoryItems.Count - 1];
         inventoryItems.RemoveAt(inventoryItems.Count - 1);
 
+        if (ui == null) return null;
+
+        ItemData item = ui.itemData;
+
         if (ui.occupiedSlots != null)
         {
             foreach (var s in ui.occupiedSlots)
-                s.ClearItem();
+                if (s != null)
+                    s.ClearItem();
         }
 
-        ItemData item = ui.itemData; // <-- ItemData, pas Item
-        Destroy(ui.gameObject);
+        if (ui != null)
+            Destroy(ui.gameObject);
+
         return item;
+    }
+
+
+    public ItemUI GetLastItem()
+    {
+        if (inventoryItems == null || inventoryItems.Count == 0)
+            return null;
+
+        return inventoryItems[inventoryItems.Count - 1];
+    }
+
+    public bool TryMergeStacks(ItemUI source, ItemUI target)
+    {
+        if (source == null || target == null) return false;
+        if (source.itemData != target.itemData) return false;
+        if (!source.itemData.isStackable) return false;
+
+        int spaceLeft = target.itemData.maxStack - target.currentStack;
+        if (spaceLeft <= 0) return false;
+
+        int moved = Mathf.Min(spaceLeft, source.currentStack);
+        target.currentStack += moved;
+        source.currentStack -= moved;
+
+        target.UpdateStackText();
+        source.UpdateStackText();
+
+        // Si le stack source est vide après fusion → le détruire
+        if (source.currentStack <= 0)
+        {
+            RemoveItem(source);
+        }
+
+        return true;
     }
 
 
@@ -211,40 +251,73 @@ public class InventoryManager : MonoBehaviour
 
 
     // Ajoute un item dans l'inventaire (instancie le prefab UI et place dans la première case libre)
-    public bool AddItem(ItemData data)
+    public bool AddItem(ItemData data, int quantity = 1)
     {
         if (data == null) return false;
-        if (itemUIPrefab == null)
+
+        // === Si stackable : essaie de compléter un stack existant ===
+        if (data.isStackable)
         {
-            Debug.LogError("[InventoryManager] itemUIPrefab non assigné !");
-            return false;
+            foreach (ItemUI ui in inventoryItems)
+            {
+                if (ui.itemData == data && ui.currentStack < data.maxStack)
+                {
+                    quantity = ui.AddToStack(quantity);
+                    if (quantity <= 0)
+                        return true; // tout ajouté, on sort
+                }
+            }
         }
 
-        // ✅ Utilise directement itemsLayer si possible (sinon fallback)
-        Transform parentTransform = itemsLayer != null ? itemsLayer : slotParent;
-        GameObject go = Instantiate(itemUIPrefab, parentTransform);
-
-        ItemUI itemUI = go.GetComponent<ItemUI>();
-        if (itemUI == null)
+        // === Sinon ou s’il reste du "reste" ===
+        while (quantity > 0)
         {
-            Debug.LogError("[InventoryManager] itemUIPrefab n'a pas de ItemUI !");
-            Destroy(go);
-            return false;
+            if (itemUIPrefab == null)
+            {
+                Debug.LogError("[InventoryManager] itemUIPrefab non assigné !");
+                return false;
+            }
+
+            GameObject go = Instantiate(itemUIPrefab, slotParent.parent.Find("ItemsParent"));
+            ItemUI itemUI = go.GetComponent<ItemUI>();
+            if (itemUI == null)
+            {
+                Debug.LogError("[InventoryManager] itemUIPrefab n'a pas de ItemUI !");
+                Destroy(go);
+                return false;
+            }
+
+            itemUI.Setup(data);
+            inventoryItems.Add(itemUI);
+
+            if (FindFirstFreePosition(data, out int px, out int py))
+            {
+                PlaceItem(itemUI, px, py);
+            }
+            else
+            {
+                Debug.LogWarning("[InventoryManager] Pas de place pour ajouter " + data.itemName);
+                Destroy(go);
+                return false;
+            }
+
+            // Si stackable, remplir le stack au max
+            if (data.isStackable)
+            {
+                int toAdd = Mathf.Min(quantity, data.maxStack);
+                itemUI.currentStack = toAdd;
+                itemUI.UpdateStackText();
+                quantity -= toAdd;
+            }
+            else
+            {
+                quantity--; // item unique
+            }
         }
 
-        itemUI.Setup(data);
-
-        if (FindFirstFreePosition(data, out int px, out int py))
-        {
-            PlaceItem(itemUI, px, py);
-            return true;
-        }
-
-        // Pas de place : détruit l'UI et signale
-        Destroy(go);
-        Debug.LogWarning("[InventoryManager] Pas de place pour ajouter " + data.itemName);
-        return false;
+        return true;
     }
+
 
 
     // Retire l'ItemUI (libère les slots et détruit l'UI)
@@ -252,11 +325,22 @@ public class InventoryManager : MonoBehaviour
     {
         if (itemUI == null) return;
 
+        // ✅ sécurité supplémentaire : évite les suppressions multiples
+        if (!inventoryItems.Contains(itemUI))
+            return;
+
+        inventoryItems.Remove(itemUI);
+
         if (itemUI.occupiedSlots != null)
         {
-            foreach (var s in itemUI.occupiedSlots) if (s != null) s.ClearItem();
+            foreach (var s in itemUI.occupiedSlots)
+                if (s != null)
+                    s.ClearItem();
         }
 
-        Destroy(itemUI.gameObject);
+        if (itemUI != null && itemUI.gameObject != null)
+            Destroy(itemUI.gameObject);
+
+        Debug.Log($"Item supprimé. Il reste {inventoryItems.Count} items dans l’inventaire.");
     }
 }

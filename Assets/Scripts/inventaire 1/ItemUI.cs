@@ -1,14 +1,17 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using TMPro;
 
-public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
 {
     public ItemData itemData;
     public Image icon;
     public Image outline;
     public Slot currentSlot;
     public Slot[] occupiedSlots;
+    public int currentStack = 1; // quantité actuelle
+    public TextMeshProUGUI stackText; // texte affiché sur l’icône
 
     [HideInInspector] public RectTransform rectTransform { get; private set; }
 
@@ -37,6 +40,7 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     public void Setup(ItemData newItemData)
     {
         itemData = newItemData;
+        currentStack = 1;
         if (icon != null && itemData.icon != null)
         {
             icon.sprite = itemData.icon;
@@ -46,6 +50,40 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         UpdateSize();
         UpdateOutline();
         StoreOriginalState();
+        UpdateStackText();
+    }
+
+    public void UpdateStackText()
+    {
+        if (stackText == null)
+        {
+            // essaie de le trouver automatiquement
+            stackText = GetComponentInChildren<TextMeshProUGUI>();
+        }
+
+        if (stackText != null)
+        {
+            if (itemData.isStackable && currentStack > 1)
+            {
+                stackText.text = currentStack.ToString();
+                stackText.enabled = true;
+            }
+            else
+            {
+                stackText.text = "";
+                stackText.enabled = false;
+            }
+        }
+    }
+
+    public int AddToStack(int amount)
+    {
+        if (!itemData.isStackable) return amount; // non stackable → on ignore
+        int spaceLeft = itemData.maxStack - currentStack;
+        int added = Mathf.Min(amount, spaceLeft);
+        currentStack += added;
+        UpdateStackText();
+        return amount - added; // retourne le "reste"
     }
 
     public void StoreOriginalState()
@@ -163,6 +201,17 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         }
     }
 
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (eventData.button == PointerEventData.InputButton.Right)
+        {
+            if (itemData.isStackable && currentStack > 1)
+            {
+                SplitStackWindow.Instance?.Open(this);
+            }
+        }
+    }
+
     public void OnPointerEnter(PointerEventData eventData)
     {
         isHovering = true;
@@ -178,15 +227,6 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
     void Update()
     {
-        if (isHovering && Input.GetKeyDown(KeyCode.P))
-        {
-            // Drop cet item particulier
-            InventoryManager.Instance.RemoveItem(this);
-            Vector3 spawnPos = PlayerController.Instance.transform.position +
-                               PlayerController.Instance.transform.forward * 1.5f + Vector3.up * 0.3f;
-            Instantiate(itemData.worldPrefab, spawnPos, Quaternion.identity);
-        }
-
         if (tooltip == null || itemData == null) return;
         if (isHovering && !tooltipVisible)
         {
