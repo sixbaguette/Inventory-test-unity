@@ -1,171 +1,231 @@
-﻿using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.EventSystems;
 
 public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
     public ItemUI itemUI;
+
     private Transform originalParent;
     private Canvas overlayCanvas;
     private RectTransform rectTransform;
     private CanvasGroup canvasGroup;
 
-    private Slot dragOffsetSlot; // Le slot sous la souris quand on commence le drag
-    private Vector2 dragOffset;
-    private Vector2 grabOffset; // Offset souris → centre de l’objet
+    private Vector2 dragOffset;   // souris → centre de l’objet
+    private Vector2 startMousePos;
+    private Vector2 startItemPos;
 
     private void Awake()
     {
         itemUI = GetComponent<ItemUI>();
         rectTransform = GetComponent<RectTransform>();
         canvasGroup = GetComponent<CanvasGroup>();
-
-        // Recherche le canvas du DragCanvas
-        foreach (Canvas c in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
-        {
-            if (c.name == "Canvas" && c.transform.parent != null && c.transform.parent.name == "DragCanvas")
-            {
-                overlayCanvas = c;
-                break;
-            }
-        }
-
-        // fallback au premier canvas trouvé (au cas où)
-        if (overlayCanvas == null)
-            overlayCanvas = FindFirstObjectByType<Canvas>();
+        overlayCanvas = InventoryManager.Instance.overlayCanvas; // canvas de drag
     }
-
 
     public void OnBeginDrag(PointerEventData eventData)
     {
-        // ✅ Libère le slot équipement si l’item vient d’un slot équipement
-        EquipementSlot oldEquipSlot = GetComponentInParent<EquipementSlot>();
-        if (oldEquipSlot != null)
+        if (overlayCanvas == null || itemUI == null) return;
+
+        // ✅ si l’item vient d’un slot d’équipement, on le détache proprement
+        // ✅ si l’item vient d’un slot d’équipement, on le détache proprement
+        var equipSlot = GetComponentInParent<EquipementSlot>();
+        if (equipSlot != null)
         {
-            oldEquipSlot.ForceClear(itemUI);
+            equipSlot.ForceClear(itemUI);
         }
 
         originalParent = transform.parent;
         transform.SetParent(overlayCanvas.transform, true);
         transform.SetAsLastSibling();
+
+        if (canvasGroup == null)
+            canvasGroup = GetComponent<CanvasGroup>();
         canvasGroup.blocksRaycasts = false;
 
-        CanvasGroup cg = itemUI.GetComponent<CanvasGroup>();
-        if (cg != null) cg.blocksRaycasts = false;
-
-        // Trouver le slot le plus proche de la souris (pour le drag offset)
-        Slot nearestSlot = null;
-        float minDist = float.MaxValue;
-
-        foreach (var slot in itemUI.occupiedSlots)
-        {
-            float dist = Vector2.Distance(eventData.position, slot.GetComponent<RectTransform>().position);
-            if (dist < minDist)
-            {
-                minDist = dist;
-                nearestSlot = slot;
-            }
-        }
-
-        if (nearestSlot != null)
-        {
-            dragOffsetSlot = nearestSlot;
-
-            Vector2 localMousePos;
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(rectTransform, eventData.position, eventData.pressEventCamera, out localMousePos);
-            dragOffset = rectTransform.localPosition - nearestSlot.GetComponent<RectTransform>().localPosition;
-        }
-    }
-
-
-
-    public void OnDrag(PointerEventData eventData)
-    {
-        if (!enabled) return;
-        Vector2 localPoint;
+        // ✅ calcule offset souris → item
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
             overlayCanvas.transform as RectTransform,
             eventData.position,
             eventData.pressEventCamera,
-            out localPoint
+            out startMousePos
         );
 
-        rectTransform.localPosition = localPoint - grabOffset;
+        startItemPos = rectTransform.anchoredPosition;
+        dragOffset = startItemPos - startMousePos;
     }
 
-    public void OnEndDrag(PointerEventData eventData)
+
+    public void OnDrag(PointerEventData eventData)
     {
-        if (!enabled) return;
-
-        // Réinitialise les highlights
-        foreach (var slot in InventoryManager.Instance.slots)
-            slot.ResetHighlight();
-
-        // Réactive les raycasts sur cet item
-        canvasGroup.blocksRaycasts = true;
-
-        // --- 1️⃣ Vérifie si on lâche sur un slot d’équipement ---
-        EquipementSlot equipSlot = eventData.pointerCurrentRaycast.gameObject
-            ? eventData.pointerCurrentRaycast.gameObject.GetComponentInParent<EquipementSlot>()
-            : null;
-
-        if (equipSlot != null)
-        {
-            // Appelle directement la logique de placement d’équipement
-            equipSlot.OnDrop(eventData);
+        if (overlayCanvas == null || rectTransform == null || itemUI == null || itemUI.itemData == null)
             return;
-        }
 
-        // --- 2️⃣ Vérifie si on lâche sur un slot de grille ---
-        SlotDrop targetSlot = eventData.pointerCurrentRaycast.gameObject
-            ? eventData.pointerCurrentRaycast.gameObject.GetComponentInParent<SlotDrop>()
-            : null;
+        // 1) Suivre la souris dans l’overlay
+        Vector2 localMouse;
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            overlayCanvas.transform as RectTransform,
+            eventData.position,
+            eventData.pressEventCamera,
+            out localMouse))
+            return;
 
-        // Si aucun objet sous la souris, on tente un raycast manuel (plus fiable)
-        if (targetSlot == null)
+        rectTransform.anchoredPosition = localMouse + dragOffset;
+
+        // 2) Si on survole un slot d’équipement → pas de highlight de grille
+        if (eventData.pointerCurrentRaycast.gameObject != null)
         {
-            var results = new List<RaycastResult>();
-            EventSystem.current.RaycastAll(eventData, results);
-
-            foreach (var result in results)
+            var overEquip = eventData.pointerCurrentRaycast.gameObject.GetComponentInParent<EquipementSlot>();
+            if (overEquip != null)
             {
-                targetSlot = result.gameObject.GetComponentInParent<SlotDrop>();
-                if (targetSlot != null) break;
+                var clearInv = InventoryManager.Instance;
+                if (clearInv?.slots != null)
+                    foreach (var s in clearInv.slots) if (s != null) s.ResetHighlight();
+                return;
             }
         }
 
-        bool placed = false;
+        // 3) Highlight grille par "slot le plus proche" en coordonnées écran
+        var inv = InventoryManager.Instance;
+        if (inv == null || inv.slots == null || inv.slotParent == null) return;
 
-        // --- 3️⃣ Si on a bien trouvé un slot valide, on tente le placement ---
-        if (targetSlot != null && itemUI != null)
+        foreach (var s in inv.slots)
+            if (s != null) s.ResetHighlight();
+
+        // Canvas racine de la grille pour conversion World->Screen
+        var rootCanvas = inv.slotParent.GetComponentInParent<Canvas>();
+        Camera cam = rootCanvas != null ? rootCanvas.worldCamera : null;
+
+        // Trouver le slot dont le centre écran est le plus proche du pointeur
+        Vector2 pointerScreen = eventData.position;
+        float bestDist = float.MaxValue;
+        int bestX = -1, bestY = -1;
+
+        for (int y = 0; y < inv.height; y++)
         {
-            placed = InventoryManager.Instance.PlaceItem(itemUI, targetSlot.x, targetSlot.y);
+            for (int x = 0; x < inv.width; x++)
+            {
+                var rt = inv.slots[x, y].GetComponent<RectTransform>();
+                // centre du slot en écran
+                Vector3 centerWorld = rt.TransformPoint(rt.rect.center);
+                Vector2 centerScreen = RectTransformUtility.WorldToScreenPoint(cam, centerWorld);
+
+                float d = Vector2.Distance(pointerScreen, centerScreen);
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    bestX = x;
+                    bestY = y;
+                }
+            }
         }
 
-        // --- 4️⃣ Si aucun placement valide, on remet l’objet à sa place d’origine ---
-        if (!placed && itemUI.currentSlot != null)
+        if (bestX < 0 || bestY < 0) return;
+
+        // Ajuster pour que l’item multi-cases tienne dans la grille (top-left de l’item)
+        int startX = Mathf.Clamp(bestX, 0, inv.width - itemUI.itemData.width);
+        int startY = Mathf.Clamp(bestY, 0, inv.height - itemUI.itemData.height);
+
+        bool canPlace = inv.CanPlaceItem(startX, startY, itemUI.itemData, itemUI);
+
+        for (int dx = 0; dx < itemUI.itemData.width; dx++)
         {
-            InventoryManager.Instance.PlaceItem(itemUI, itemUI.currentSlot.x, itemUI.currentSlot.y);
+            for (int dy = 0; dy < itemUI.itemData.height; dy++)
+            {
+                int cx = startX + dx;
+                int cy = startY + dy;
+                if (cx < 0 || cy < 0 || cx >= inv.width || cy >= inv.height) continue;
+                inv.slots[cx, cy].Highlight(canPlace ? Color.green : Color.red);
+            }
         }
     }
 
 
-    private float slotWidth
+    public void OnEndDrag(PointerEventData eventData)
     {
-        get
-        {
-            RectTransform slotRect = InventoryManager.Instance.slots[0, 0].GetComponent<RectTransform>();
-            return slotRect.sizeDelta.x;
-        }
-    }
+        if (canvasGroup == null) canvasGroup = GetComponent<CanvasGroup>();
+        canvasGroup.blocksRaycasts = true;
 
-    private float slotHeight
-    {
-        get
-        {
-            RectTransform slotRect = InventoryManager.Instance.slots[0, 0].GetComponent<RectTransform>();
-            return slotRect.sizeDelta.y;
-        }
-    }
+        var inv = InventoryManager.Instance;
+        if (inv == null || itemUI == null || itemUI.itemData == null) return;
 
+        // 1) Si on lâche sur un slot d’équipement → priorité
+        EquipementSlot equipSlot = null;
+        if (eventData.pointerCurrentRaycast.gameObject != null)
+            equipSlot = eventData.pointerCurrentRaycast.gameObject.GetComponentInParent<EquipementSlot>();
+
+        if (equipSlot != null && equipSlot.IsCompatible(itemUI.itemData))
+        {
+            equipSlot.OnDrop(eventData);
+            if (inv.slots != null)
+                foreach (var s in inv.slots) if (s != null) s.ResetHighlight();
+            return;
+        }
+
+        // 2) Sinon snap grille par slot le plus proche (en écran)
+        if (inv.slots == null || inv.slotParent == null) return;
+
+        foreach (var s in inv.slots)
+            if (s != null) s.ResetHighlight();
+
+        var rootCanvas = inv.slotParent.GetComponentInParent<Canvas>();
+        Camera cam = rootCanvas != null ? rootCanvas.worldCamera : null;
+
+        Vector2 pointerScreen = eventData.position;
+        float bestDist = float.MaxValue;
+        int bestX = -1, bestY = -1;
+
+        for (int y = 0; y < inv.height; y++)
+        {
+            for (int x = 0; x < inv.width; x++)
+            {
+                var rt = inv.slots[x, y].GetComponent<RectTransform>();
+                Vector3 centerWorld = rt.TransformPoint(rt.rect.center);
+                Vector2 centerScreen = RectTransformUtility.WorldToScreenPoint(cam, centerWorld);
+
+                float d = Vector2.Distance(pointerScreen, centerScreen);
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    bestX = x;
+                    bestY = y;
+                }
+            }
+        }
+
+        if (bestX < 0 || bestY < 0)
+        {
+            // pas de slot trouvé → on remet à la dernière position valide si connue
+            if (itemUI.currentSlot != null)
+                inv.PlaceItem(itemUI, itemUI.currentSlot.x, itemUI.currentSlot.y);
+            return;
+        }
+
+        // Ajuste pour que l’item tienne dans la grille
+        int startX = Mathf.Clamp(bestX, 0, inv.width - itemUI.itemData.width);
+        int startY = Mathf.Clamp(bestY, 0, inv.height - itemUI.itemData.height);
+
+        // Option : petit rayon max pour éviter les snaps trop loin (ex: 120 px)
+        // if (bestDist > 120f) { if (itemUI.currentSlot != null) inv.PlaceItem(itemUI, itemUI.currentSlot.x, itemUI.currentSlot.y); return; }
+
+        bool placed = inv.PlaceItem(itemUI, startX, startY);
+        if (!placed)
+        {
+            // Essaie un mini recentrage autour du slot visé (utile près des bords/collisions)
+            for (int ox = -itemUI.itemData.width; ox <= 0 && !placed; ox++)
+            {
+                for (int oy = -itemUI.itemData.height; oy <= 0 && !placed; oy++)
+                {
+                    int altX = Mathf.Clamp(bestX + ox, 0, inv.width - itemUI.itemData.width);
+                    int altY = Mathf.Clamp(bestY + oy, 0, inv.height - itemUI.itemData.height);
+                    if (inv.CanPlaceItem(altX, altY, itemUI.itemData, itemUI))
+                        placed = inv.PlaceItem(itemUI, altX, altY);
+                }
+            }
+
+            if (!placed && itemUI.currentSlot != null)
+                inv.PlaceItem(itemUI, itemUI.currentSlot.x, itemUI.currentSlot.y);
+        }
+
+        canvasGroup.blocksRaycasts = true;
+    }
 }

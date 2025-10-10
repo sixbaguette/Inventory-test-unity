@@ -123,7 +123,7 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
     public void UpdateOutline()
     {
-        if (outline == null || itemData == null || InventoryManager.Instance == null) return;
+        if (outline == null || itemData == null) return;
 
         RectTransform slotRect = InventoryManager.Instance.slots[0, 0].GetComponent<RectTransform>();
         Vector2 slotSize = slotRect.sizeDelta;
@@ -137,13 +137,17 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
             (itemData.height * slotSize.y) + ((itemData.height - 1) * spacingY)
         );
 
-        Vector2 margin = new Vector2(2, 2);
-        outline.rectTransform.anchorMin = new Vector2(0, 1);
-        outline.rectTransform.anchorMax = new Vector2(0, 1);
-        outline.rectTransform.pivot = new Vector2(0, 1);
+        // Centré dans le parent
+        outline.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        outline.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        outline.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        outline.rectTransform.anchoredPosition = Vector2.zero;
+
+        // Ajuste la taille + marge
+        Vector2 margin = new Vector2(4, 4);
         outline.rectTransform.sizeDelta = totalSize + margin;
-        outline.rectTransform.anchoredPosition = new Vector2(-margin.x / 2f, margin.y / 2f);
     }
+
 
     public void SetOccupiedSlots(int startX, int startY, int width, int height)
     {
@@ -159,8 +163,18 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         }
     }
 
-    public void OnPointerEnter(PointerEventData eventData) { isHovering = true; timer = 0f; tooltipVisible = false; }
-    public void OnPointerExit(PointerEventData eventData) { isHovering = false; if (tooltipVisible && tooltip != null) tooltip.Hide(); tooltipVisible = false; }
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        isHovering = true;
+        timer = 0f;
+        tooltipVisible = false;
+    }
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        isHovering = false;
+        if (tooltipVisible && tooltip != null) tooltip.Hide();
+        tooltipVisible = false;
+    }
 
     void Update()
     {

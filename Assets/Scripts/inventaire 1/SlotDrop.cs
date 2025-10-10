@@ -1,12 +1,12 @@
 ﻿using UnityEngine;
 using UnityEngine.EventSystems;
 
-public class SlotDrop : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+public class SlotDrop : MonoBehaviour//, IPointerEnterHandler, IPointerExitHandler
 {
     public int x;
     public int y;
 
-    public void OnPointerEnter(PointerEventData eventData)
+    /*public void OnPointerEnter(PointerEventData eventData)
     {
         if (eventData.pointerDrag == null) return;
 
@@ -46,5 +46,5 @@ public class SlotDrop : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
                 InventoryManager.Instance.slots[checkX, checkY].ResetHighlight();
             }
         }
-    }
+    }*/
 }

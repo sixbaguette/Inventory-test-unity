@@ -4,7 +4,8 @@ using UnityEngine.UI;
 
 public class EquipementSlot : MonoBehaviour, IDropHandler
 {
-    public string slotType; // ex "Weapon", "Armor", or empty = accept any
+    [Header("Type d’équipement accepté")]
+    public string slotType; // ex : "Weapon", "Armor"
     public Image iconDisplay;
 
     private ItemUI currentItem;
@@ -22,9 +23,25 @@ public class EquipementSlot : MonoBehaviour, IDropHandler
         var droppedUI = eventData.pointerDrag?.GetComponent<ItemUI>();
         if (droppedUI == null) return;
 
-        if (!IsCompatible(droppedUI.itemData)) return;
-        if (currentItem != null) { Debug.Log("Slot déjà occupé"); return; }
+        if (!IsCompatible(droppedUI.itemData))
+            return;
 
+        // Si un item existe déjà → on le renvoie dans l’inventaire
+        if (currentItem != null)
+        {
+            UnequipItem();
+        }
+
+        // Nettoie les slots de la grille que l’objet occupait
+        if (droppedUI.occupiedSlots != null)
+        {
+            foreach (var s in droppedUI.occupiedSlots)
+                if (s != null) s.ClearItem();
+        }
+        droppedUI.currentSlot = null;
+        droppedUI.occupiedSlots = null;
+
+        // Équipe proprement
         EquipItem(droppedUI);
     }
 
@@ -32,65 +49,99 @@ public class EquipementSlot : MonoBehaviour, IDropHandler
     {
         if (itemUI == null) return;
 
-        // Clear inventory slots occupied by this item (it is removed from inventory)
-        if (itemUI.occupiedSlots != null)
-        {
-            foreach (var s in itemUI.occupiedSlots) if (s != null) s.ClearItem();
-        }
-
         itemUI.StoreOriginalState();
-
         currentItem = itemUI;
 
-        // parent -> this slot
+        // === 1️⃣ Vérifie et convertit la position si l'item change de Canvas ===
+        Canvas slotCanvas = GetComponentInParent<Canvas>();
+        Canvas itemCanvas = itemUI.GetComponentInParent<Canvas>();
+
+        if (slotCanvas != null && itemCanvas != slotCanvas)
+        {
+            // Conversion de la position écran → locale dans le nouveau canvas
+            Vector2 screenPos = RectTransformUtility.WorldToScreenPoint(itemCanvas.worldCamera, itemUI.rectTransform.position);
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                slotCanvas.transform as RectTransform,
+                screenPos,
+                slotCanvas.worldCamera,
+                out var localPos);
+
+            itemUI.rectTransform.position = slotCanvas.transform.TransformPoint(localPos);
+            itemUI.transform.SetParent(slotCanvas.transform, true);
+        }
+
+        // === 2️⃣ Place ensuite l'item dans le slot ===
         itemUI.transform.SetParent(transform, false);
 
-        // center & size
+        // === 3️⃣ Recalibrage du RectTransform ===
         RectTransform it = itemUI.rectTransform;
         RectTransform sr = GetComponent<RectTransform>();
-        it.anchorMin = new Vector2(0.5f, 0.5f);
-        it.anchorMax = new Vector2(0.5f, 0.5f);
-        it.pivot = new Vector2(0.5f, 0.5f);
-        it.anchoredPosition = Vector2.zero;
+
+        it.localScale = Vector3.one;
+        it.anchorMin = it.anchorMax = it.pivot = new Vector2(0.5f, 0.5f);
+        it.anchoredPosition3D = Vector3.zero;
+        it.localPosition = Vector3.zero;
         it.sizeDelta = sr.sizeDelta;
+
+        // === 4️⃣ Met à jour visuel ===
+        if (itemUI.icon != null)
+        {
+            itemUI.icon.enabled = true;
+            itemUI.icon.rectTransform.sizeDelta = sr.sizeDelta;
+        }
 
         if (itemUI.outline != null)
         {
-            var or = itemUI.outline.rectTransform;
-            or.anchorMin = new Vector2(0.5f, 0.5f);
-            or.anchorMax = new Vector2(0.5f, 0.5f);
-            or.pivot = new Vector2(0.5f, 0.5f);
-            or.anchoredPosition = Vector2.zero;
-            or.sizeDelta = sr.sizeDelta;
+            itemUI.outline.enabled = true;
+            itemUI.outline.rectTransform.sizeDelta = sr.sizeDelta + new Vector2(4, 4);
         }
 
-        if (iconDisplay != null) iconDisplay.enabled = false;
+        if (iconDisplay != null)
+            iconDisplay.enabled = false;
+
+        // === 5️⃣ Devant visuellement ===
+        itemUI.transform.SetAsLastSibling();
     }
+
+
+
 
     public void UnequipItem()
     {
         if (currentItem == null) return;
 
-        // essaye de remettre dans l'inventaire au premier emplacement libre
-        if (InventoryManager.Instance.FindFirstFreePosition(currentItem.itemData, out int x, out int y))
+        var item = currentItem;
+        currentItem = null;
+
+        // ✅ Replace dans la grille
+        if (InventoryManager.Instance.FindFirstFreePosition(item.itemData, out int x, out int y))
         {
-            // PlaceItem remet parent et taille correctement
-            InventoryManager.Instance.PlaceItem(currentItem, x, y);
+            InventoryManager.Instance.PlaceItem(item, x, y);
         }
         else
         {
-            // pas de place : restaure à l'état original (parent + size)
-            currentItem.RestoreOriginalState();
+            item.RestoreOriginalState();
         }
 
-        currentItem = null;
-
-        if (iconDisplay != null) iconDisplay.enabled = true;
+        if (iconDisplay != null)
+            iconDisplay.enabled = true;
     }
 
-    // utilitaire appelé depuis ItemDrag si on commence un drag depuis ce slot
     public void ForceClear(ItemUI itemUI)
     {
-        if (currentItem == itemUI) UnequipItem();
+        if (currentItem == itemUI)
+        {
+            currentItem = null;
+            if (iconDisplay != null)
+                iconDisplay.enabled = true;
+
+            // ✅ remet dans la hiérarchie d’inventaire correcte (ItemsLayer, pas OverlayCanvas)
+            if (InventoryManager.Instance != null && InventoryManager.Instance.itemsLayer != null)
+            {
+                itemUI.transform.SetParent(InventoryManager.Instance.itemsLayer.transform, true);
+                itemUI.UpdateSize();
+                itemUI.UpdateOutline();
+            }
+        }
     }
 }

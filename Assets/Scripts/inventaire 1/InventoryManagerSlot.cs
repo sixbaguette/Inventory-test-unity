@@ -11,6 +11,8 @@ public class InventoryManager : MonoBehaviour
     public Transform slotParent;           // parent des slots (GridLayoutGroup)
     public GameObject itemUIPrefab;        // prefab UI (ItemUI) pour AddItem()
     public Canvas overlayCanvas;           // canvas overlay pour drag
+    public RectTransform itemsLayer; // assigné dans l’inspecteur
+
 
     private List<ItemUI> inventoryItems = new List<ItemUI>();
 
@@ -136,10 +138,9 @@ public class InventoryManager : MonoBehaviour
 
         // Libère anciens slots
         if (itemUI.occupiedSlots != null)
-        {
             foreach (var s in itemUI.occupiedSlots) if (s != null) s.ClearItem();
-        }
 
+        // Vérifie place
         if (!CanPlaceItem(startX, startY, item, itemUI))
         {
             // si impossible → essayer de réassigner ancien emplacement (s'il existait)
@@ -151,40 +152,63 @@ public class InventoryManager : MonoBehaviour
             return false;
         }
 
-        // Assignation des nouveaux slots
+        // Assigne les nouveaux slots
         itemUI.SetOccupiedSlots(startX, startY, item.width, item.height);
         foreach (var s in itemUI.occupiedSlots) if (s != null) s.SetItem(itemUI);
 
-        // Positionnement visuel : on met parent = slot et on ajuste ancres / size afin d'être correctement aligné
-        Slot targetSlot = slots[startX, startY];
-        RectTransform slotRect = targetSlot.GetComponent<RectTransform>();
+        // === POSITIONNEMENT PIXEL-PERFECT DANS ItemsLayer (PAS DANS UN SLOT) ===
+        if (itemsLayer == null) itemsLayer = slotParent as RectTransform; // fallback
 
-        itemUI.transform.SetParent(targetSlot.transform, false);
-        itemUI.transform.SetAsLastSibling();
+        // Parent = ItemsLayer
+        itemUI.transform.SetParent(itemsLayer, false);
 
-        // Ajuste le rect transform du ItemUI à la taille occupée (en slots)
-        float spacingX = 0f, spacingY = 0f;
+        // Récupère taille cellule + spacing
         var grid = slotParent.GetComponent<UnityEngine.UI.GridLayoutGroup>();
-        if (grid != null) { spacingX = grid.spacing.x; spacingY = grid.spacing.y; }
+        float spacingX = grid ? grid.spacing.x : 0f;
+        float spacingY = grid ? grid.spacing.y : 0f;
+        float padLeft = grid ? grid.padding.left : 0f;
+        float padTop = grid ? grid.padding.top : 0f;
+
+        RectTransform cellRect = slots[0, 0].GetComponent<RectTransform>();
+        float cellW = cellRect.sizeDelta.x;
+        float cellH = cellRect.sizeDelta.y;
 
         Vector2 desiredSize = new Vector2(
-            (item.width * slotRect.sizeDelta.x) + ((item.width - 1) * spacingX),
-            (item.height * slotRect.sizeDelta.y) + ((item.height - 1) * spacingY)
+            (item.width * cellW) + ((item.width - 1) * spacingX),
+            (item.height * cellH) + ((item.height - 1) * spacingY)
         );
 
         RectTransform itRect = itemUI.rectTransform;
         itRect.anchorMin = new Vector2(0, 1);
         itRect.anchorMax = new Vector2(0, 1);
         itRect.pivot = new Vector2(0, 1);
-        itRect.anchoredPosition = Vector2.zero;
         itRect.sizeDelta = desiredSize;
 
-        itemUI.currentSlot = targetSlot;
+        // ✅ On ajoute le padding gauche / haut
+        float xPx = padLeft + startX * (cellW + spacingX);
+        float yPx = padTop + startY * (cellH + spacingY);
+
+        // ✅ Correction d’alignement subtile
+        xPx += 1.5f;   // léger ajustement à droite
+        yPx += 1.5f;   // léger ajustement vers le bas (note : inversé ensuite)
+
+        itRect.anchoredPosition = new Vector2(xPx, -yPx);
+
+
+
+        // Devant visuellement
+        itemUI.transform.SetAsLastSibling();
+
+        // Mémorise le "slot d'origine" (utile pour revert)
+        itemUI.currentSlot = slots[startX, startY];
+
+        // Mets à jour outline/size (sécure)
         itemUI.UpdateOutline();
-        itemUI.UpdateSize(); // maintien cohérence
+        itemUI.UpdateSize();
 
         return true;
     }
+
 
     // Ajoute un item dans l'inventaire (instancie le prefab UI et place dans la première case libre)
     public bool AddItem(ItemData data)
@@ -196,7 +220,10 @@ public class InventoryManager : MonoBehaviour
             return false;
         }
 
-        GameObject go = Instantiate(itemUIPrefab, slotParent.parent.Find("ItemsParent"));
+        // ✅ Utilise directement itemsLayer si possible (sinon fallback)
+        Transform parentTransform = itemsLayer != null ? itemsLayer : slotParent;
+        GameObject go = Instantiate(itemUIPrefab, parentTransform);
+
         ItemUI itemUI = go.GetComponent<ItemUI>();
         if (itemUI == null)
         {
@@ -218,6 +245,7 @@ public class InventoryManager : MonoBehaviour
         Debug.LogWarning("[InventoryManager] Pas de place pour ajouter " + data.itemName);
         return false;
     }
+
 
     // Retire l'ItemUI (libère les slots et détruit l'UI)
     public void RemoveItem(ItemUI itemUI)
