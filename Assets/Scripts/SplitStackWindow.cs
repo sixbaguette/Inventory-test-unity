@@ -1,4 +1,4 @@
-using TMPro;
+﻿using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -38,7 +38,7 @@ public class SplitStackWindow : MonoBehaviour
         if (titleText != null)
             titleText.text = $"Split {source.itemData.itemName} ({source.currentStack})";
 
-        // positionner la fen�tre pr�s de la souris
+        // positionner la fenêtre près de la souris
         RectTransform rect = GetComponent<RectTransform>();
         Vector2 mousePos = Input.mousePosition;
         rect.position = mousePos + new Vector2(100f, -50f);
@@ -46,27 +46,44 @@ public class SplitStackWindow : MonoBehaviour
 
     private void OnConfirm()
     {
-        if (sourceItem == null) { Close(); return; }
+        if (sourceItem == null)
+        {
+            Close();
+            return;
+        }
 
         if (int.TryParse(inputField.text, out int amount))
         {
+            // empêche un split invalide (ex. 0 ou >= stack total)
             amount = Mathf.Clamp(amount, 1, sourceItem.currentStack - 1);
 
-            // R�duit le stack source
+            // ✅ Vérifie d'abord s’il y a de la place libre dans l’inventaire
+            if (!InventoryManager.Instance.FindFirstFreePosition(sourceItem.itemData, out int x, out int y))
+            {
+                Debug.LogWarning("[Split] Inventaire plein, impossible de séparer le stack !");
+                // Optionnel : feedback visuel
+                Close();
+                return;
+            }
+
+            // ✅ Réduit le stack d’origine
             sourceItem.currentStack -= amount;
             sourceItem.UpdateStackText();
 
-            // Cr�e un nouveau stack identique
+            // ✅ Crée le nouveau stack seulement si place trouvée
             GameObject go = Instantiate(InventoryManager.Instance.itemUIPrefab, InventoryManager.Instance.itemsLayer);
             ItemUI newStack = go.GetComponent<ItemUI>();
             newStack.Setup(sourceItem.itemData);
             newStack.currentStack = amount;
             newStack.UpdateStackText();
 
-            if (InventoryManager.Instance.FindFirstFreePosition(sourceItem.itemData, out int x, out int y))
-                InventoryManager.Instance.PlaceItem(newStack, x, y);
-            else
-                Debug.LogWarning("Aucune place pour le nouveau stack s�par� !");
+            // ✅ Ajoute le nouvel item à la liste interne (important pour le drop / gestion)
+            InventoryManager.Instance.AddToInventoryList(newStack);
+
+            // ✅ Place le nouveau stack à la position trouvée
+            InventoryManager.Instance.PlaceItem(newStack, x, y);
+
+            Debug.Log($"[Split] Nouveau stack de {amount} créé pour {sourceItem.itemData.itemName}");
         }
 
         Close();

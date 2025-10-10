@@ -55,16 +55,15 @@ public class InventoryManager : MonoBehaviour
                     continue;
                 }
 
+                // ✅ Le Slot connaît déjà sa position
                 slot.Setup(x, y);
                 slots[x, y] = slot;
-
-                SlotDrop sd = slotGO.GetComponent<SlotDrop>();
-                if (sd != null) { sd.x = x; sd.y = y; }
             }
         }
 
         Debug.Log($"[InventoryManager] Grille initialisée ({width}x{height})");
     }
+
 
 
     public bool CanPlaceItem(int startX, int startY, ItemData item, ItemUI ignoreItemUI = null)
@@ -143,14 +142,31 @@ public class InventoryManager : MonoBehaviour
         target.UpdateStackText();
         source.UpdateStackText();
 
-        // Si le stack source est vide après fusion → le détruire
+        // ✅ Si le stack source est vide après fusion → on le retire proprement
         if (source.currentStack <= 0)
         {
-            RemoveItem(source);
+            // 1️⃣ Libère visuellement ses anciens slots
+            if (source.occupiedSlots != null)
+            {
+                foreach (var s in source.occupiedSlots)
+                    if (s != null)
+                        s.ClearItem();
+            }
+
+            // 2️⃣ Retire l’ItemUI de la liste d’inventaire
+            if (inventoryItems.Contains(source))
+                inventoryItems.Remove(source);
+
+            // 3️⃣ Supprime le GameObject (UI)
+            if (source != null && source.gameObject != null)
+                Destroy(source.gameObject);
+
+            Debug.Log($"Stack {source.itemData.itemName} fusionné et supprimé proprement.");
         }
 
         return true;
     }
+
 
 
     public bool FindFirstFreePosition(ItemData item, out int outX, out int outY)
@@ -342,5 +358,12 @@ public class InventoryManager : MonoBehaviour
             Destroy(itemUI.gameObject);
 
         Debug.Log($"Item supprimé. Il reste {inventoryItems.Count} items dans l’inventaire.");
+    }
+
+    public void AddToInventoryList(ItemUI itemUI)
+    {
+        if (itemUI == null) return;
+        if (!inventoryItems.Contains(itemUI))
+            inventoryItems.Add(itemUI);
     }
 }
