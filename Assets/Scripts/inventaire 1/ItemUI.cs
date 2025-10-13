@@ -47,11 +47,13 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             icon.enabled = true;
         }
 
+        EnsureChildLayout();
         UpdateSize();
         UpdateOutline();
         StoreOriginalState();
         UpdateStackText();
     }
+
 
     public void UpdateStackText()
     {
@@ -145,7 +147,7 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
         // ✅ 1) taille du conteneur ItemUI
         rectTransform.sizeDelta = newSize;
-
+        EnsureChildLayout();
         // ✅ 2) FAIT SUIVRE L’ICÔNE exactement à la taille de l’ItemUI
         if (icon != null)
         {
@@ -156,6 +158,31 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             irt.anchoredPosition = Vector2.zero;
             irt.sizeDelta = newSize;              // <- point clé
                                                   // (optionnel) si tu utilises PreserveAspect, laisse coché, sinon décoche
+        }
+    }
+
+    public void EnsureChildLayout()
+    {
+        if (icon != null)
+        {
+            var rt = icon.rectTransform;
+            rt.anchorMin = Vector2.zero;   // stretch
+            rt.anchorMax = Vector2.one;    // stretch
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = Vector2.zero;
+            rt.localEulerAngles = Vector3.zero;
+            icon.preserveAspect = false;   // IMPORTANT pour remplir le parent
+        }
+
+        if (outline != null)
+        {
+            var rt = outline.rectTransform;
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.localEulerAngles = Vector3.zero;
         }
     }
 
@@ -228,14 +255,32 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
     public void SetOccupiedSlots(int startX, int startY, int width, int height)
     {
+        var inv = InventoryManager.Instance;
+        if (inv == null || inv.slots == null) return;
+
+        // 🔒 bornes de sécurité
+        startX = Mathf.Clamp(startX, 0, inv.width - width);
+        startY = Mathf.Clamp(startY, 0, inv.height - height);
+
         occupiedSlots = new Slot[width * height];
         int index = 0;
+
         for (int yy = 0; yy < height; yy++)
         {
             for (int xx = 0; xx < width; xx++)
             {
-                occupiedSlots[index] = InventoryManager.Instance.slots[startX + xx, startY + yy];
-                index++;
+                int sx = startX + xx;
+                int sy = startY + yy;
+
+                // évite les dépassements
+                if (sx < 0 || sy < 0 || sx >= inv.width || sy >= inv.height)
+                {
+                    Debug.LogWarning($"[SetOccupiedSlots] dépassement ignoré ({sx},{sy})");
+                    continue;
+                }
+
+                Slot slot = inv.slots[sx, sy];
+                occupiedSlots[index++] = slot;
             }
         }
     }

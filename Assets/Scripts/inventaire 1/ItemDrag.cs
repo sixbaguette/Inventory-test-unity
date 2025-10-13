@@ -9,6 +9,9 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
     private Canvas overlayCanvas;
     private RectTransform rectTransform;
     private CanvasGroup canvasGroup;
+    private bool isDragging = false;
+    private Vector2Int lastValidPos;
+    private Vector2Int lastValidSize;
 
     private Vector2 dragOffset;   // souris → centre de l’objet
     private Vector2 startMousePos;
@@ -22,27 +25,46 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
         overlayCanvas = InventoryManager.Instance.overlayCanvas; // canvas de drag
     }
 
+    void Update()
+    {
+        if (isDragging && Input.GetKeyDown(KeyCode.R))
+        {
+            RotateDuringDrag();
+        }
+    }
+
+    private void RotateDuringDrag()
+    {
+        if (itemUI == null || itemUI.itemData == null) return;
+
+        // swap width/height sur LA COPIE runtime
+        int oldW = itemUI.itemData.width;
+        int oldH = itemUI.itemData.height;
+        itemUI.itemData.width = oldH;
+        itemUI.itemData.height = oldW;
+
+        // recalcul visuel — l’icône et l’outline suivent si configurés en stretch (voir ci-dessous)
+        itemUI.UpdateSize();
+        itemUI.UpdateOutline();
+    }
+
     public void OnBeginDrag(PointerEventData eventData)
     {
         if (overlayCanvas == null || itemUI == null) return;
 
-        // ✅ si l’item vient d’un slot d’équipement, on le détache proprement
-        // ✅ si l’item vient d’un slot d’équipement, on le détache proprement
+        isDragging = true;
+
+        // détache d’un slot d’équipement si besoin
         var equipSlot = GetComponentInParent<EquipementSlot>();
-        if (equipSlot != null)
-        {
-            equipSlot.ForceClear(itemUI);
-        }
+        if (equipSlot != null) equipSlot.ForceClear(itemUI);
 
         originalParent = transform.parent;
         transform.SetParent(overlayCanvas.transform, true);
         transform.SetAsLastSibling();
 
-        if (canvasGroup == null)
-            canvasGroup = GetComponent<CanvasGroup>();
+        if (canvasGroup == null) canvasGroup = GetComponent<CanvasGroup>();
         canvasGroup.blocksRaycasts = false;
 
-        // ✅ calcule offset souris → item
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
             overlayCanvas.transform as RectTransform,
             eventData.position,
@@ -50,10 +72,20 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
             out startMousePos
         );
 
+        // Sauvegarde la position et la taille actuelles avant de déplacer
+        if (itemUI.currentSlot != null)
+        {
+            lastValidPos = new Vector2Int(itemUI.currentSlot.x, itemUI.currentSlot.y);
+            lastValidSize = new Vector2Int(itemUI.itemData.width, itemUI.itemData.height);
+        }
+
         startItemPos = rectTransform.anchoredPosition;
         dragOffset = startItemPos - startMousePos;
-    }
 
+        // Recalage visuel
+        itemUI.UpdateSize();
+        itemUI.UpdateOutline();
+    }
 
     public void OnDrag(PointerEventData eventData)
     {
@@ -142,6 +174,7 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
 
     public void OnEndDrag(PointerEventData eventData)
     {
+        isDragging = false;
         if (canvasGroup == null) canvasGroup = GetComponent<CanvasGroup>();
         canvasGroup.blocksRaycasts = true;
 
@@ -232,23 +265,28 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
         // if (bestDist > 120f) { if (itemUI.currentSlot != null) inv.PlaceItem(itemUI, itemUI.currentSlot.x, itemUI.currentSlot.y); return; }
 
         bool placed = inv.PlaceItem(itemUI, startX, startY);
+
         if (!placed)
         {
-            // Essaie un mini recentrage autour du slot visé (utile près des bords/collisions)
-            for (int ox = -itemUI.itemData.width; ox <= 0 && !placed; ox++)
+            // ❌ Placement échoué : on restaure l’état précédent
+            Debug.Log("[OnEndDrag] Placement impossible, retour position/rotation initiale");
+
+            // Reviens à la rotation d’origine
+            if (itemUI.itemData.width != lastValidSize.x || itemUI.itemData.height != lastValidSize.y)
             {
-                for (int oy = -itemUI.itemData.height; oy <= 0 && !placed; oy++)
-                {
-                    int altX = Mathf.Clamp(bestX + ox, 0, inv.width - itemUI.itemData.width);
-                    int altY = Mathf.Clamp(bestY + oy, 0, inv.height - itemUI.itemData.height);
-                    if (inv.CanPlaceItem(altX, altY, itemUI.itemData, itemUI))
-                        placed = inv.PlaceItem(itemUI, altX, altY);
-                }
+                int tmp = itemUI.itemData.width;
+                itemUI.itemData.width = itemUI.itemData.height;
+                itemUI.itemData.height = tmp;
             }
 
-            // Si impossible → retour à l’ancien emplacement
-            if (!placed && itemUI.currentSlot != null)
-                inv.PlaceItem(itemUI, itemUI.currentSlot.x, itemUI.currentSlot.y);
+            // Replace à sa position d’origine
+            inv.PlaceItem(itemUI, lastValidPos.x, lastValidPos.y);
+        }
+        else
+        {
+            // ✅ placement réussi, on met à jour la dernière position connue
+            lastValidPos = new Vector2Int(startX, startY);
+            lastValidSize = new Vector2Int(itemUI.itemData.width, itemUI.itemData.height);
         }
 
         canvasGroup.blocksRaycasts = true;
