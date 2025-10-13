@@ -112,20 +112,17 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
     public void UpdateSize()
     {
-        // 🔒 Sécurité : empêche les nulls et erreurs d'ordre d'initialisation
         if (itemData == null) return;
         if (InventoryManager.Instance == null) return;
         if (InventoryManager.Instance.slots == null) return;
         if (InventoryManager.Instance.slots.Length == 0) return;
 
-        // ✅ Récupère un slot de référence (0,0)
         Slot firstSlot = InventoryManager.Instance.slots[0, 0];
         if (firstSlot == null) return;
 
         RectTransform slotRect = firstSlot.GetComponent<RectTransform>();
         if (slotRect == null) return;
 
-        // ✅ Taille d'un slot + spacing
         Vector2 slotSize = slotRect.sizeDelta;
         float spacingX = 0f;
         float spacingY = 0f;
@@ -137,53 +134,95 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             spacingY = grid.spacing.y;
         }
 
-        // ✅ Calcul final de la taille de l'item (en tenant compte du spacing)
+        // taille finale de l'item dans la grille
         Vector2 newSize = new Vector2(
             (itemData.width * slotSize.x) + ((itemData.width - 1) * spacingX),
             (itemData.height * slotSize.y) + ((itemData.height - 1) * spacingY)
         );
 
-        // ✅ Application sur le RectTransform principal
         if (rectTransform == null)
             rectTransform = GetComponent<RectTransform>();
 
+        // ✅ 1) taille du conteneur ItemUI
         rectTransform.sizeDelta = newSize;
 
-        // ✅ Mets aussi à jour le contour (outline) si présent
-        if (outline != null)
+        // ✅ 2) FAIT SUIVRE L’ICÔNE exactement à la taille de l’ItemUI
+        if (icon != null)
         {
-            outline.rectTransform.sizeDelta = newSize + new Vector2(2, 2);
-            outline.rectTransform.anchoredPosition = new Vector2(-1, 1);
+            var irt = icon.rectTransform;
+            irt.anchorMin = new Vector2(0.5f, 0.5f);
+            irt.anchorMax = new Vector2(0.5f, 0.5f);
+            irt.pivot = new Vector2(0.5f, 0.5f);
+            irt.anchoredPosition = Vector2.zero;
+            irt.sizeDelta = newSize;              // <- point clé
+                                                  // (optionnel) si tu utilises PreserveAspect, laisse coché, sinon décoche
         }
     }
 
+    public void RotateItem()
+    {
+        if (itemData == null || InventoryManager.Instance == null)
+            return;
 
+        // Sauvegarde dimensions
+        int oldWidth = itemData.width;
+        int oldHeight = itemData.height;
+
+        // Échange largeur / hauteur
+        itemData.width = oldHeight;
+        itemData.height = oldWidth;
+
+        // Vérifie si l’item peut être replacé à la même position
+        if (currentSlot != null)
+        {
+            int startX = currentSlot.x;
+            int startY = currentSlot.y;
+
+            bool canPlace = InventoryManager.Instance.CanPlaceItem(startX, startY, itemData, this);
+            if (!canPlace)
+            {
+                // revert si rotation impossible
+                itemData.width = oldWidth;
+                itemData.height = oldHeight;
+                Debug.Log($"[Rotate] Rotation impossible : pas assez de place pour {itemData.itemName}");
+                return;
+            }
+
+            // Repositionne avec nouvelle taille
+            InventoryManager.Instance.PlaceItem(this, startX, startY);
+        }
+
+        // Actualise visuel
+        UpdateSize();
+        UpdateOutline();
+
+        Debug.Log($"[Rotate] {itemData.itemName} tourné de 90° ({itemData.width}x{itemData.height})");
+    }
 
     public void UpdateOutline()
     {
         if (outline == null || itemData == null) return;
 
-        RectTransform slotRect = InventoryManager.Instance.slots[0, 0].GetComponent<RectTransform>();
-        Vector2 slotSize = slotRect.sizeDelta;
+        // On part de la taille réelle de l’ItemUI (celle déjà arrondie par UpdateSize)
+        Vector2 itemSize = rectTransform.sizeDelta;
 
-        float spacingX = 0f, spacingY = 0f;
-        var grid = InventoryManager.Instance.slotParent.GetComponent<UnityEngine.UI.GridLayoutGroup>();
-        if (grid != null) { spacingX = grid.spacing.x; spacingY = grid.spacing.y; }
+        // ⚙️ Nettoyage des arrondis Unity
+        itemSize.x = Mathf.Round(itemSize.x);
+        itemSize.y = Mathf.Round(itemSize.y);
 
-        Vector2 totalSize = new Vector2(
-            (itemData.width * slotSize.x) + ((itemData.width - 1) * spacingX),
-            (itemData.height * slotSize.y) + ((itemData.height - 1) * spacingY)
-        );
+        RectTransform ort = outline.rectTransform;
 
-        // Centré dans le parent
-        outline.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-        outline.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-        outline.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-        outline.rectTransform.anchoredPosition = Vector2.zero;
+        // ✅ ancrage cohérent avec la grille (haut-gauche)
+        ort.anchorMin = new Vector2(0, 1);
+        ort.anchorMax = new Vector2(0, 1);
+        ort.pivot = new Vector2(0, 1);
 
-        // Ajuste la taille + marge
-        Vector2 margin = new Vector2(4, 4);
-        outline.rectTransform.sizeDelta = totalSize + margin;
+        // ✅ toujours parfaitement superposé à l’item
+        ort.anchoredPosition = Vector2.zero;
+
+        // ✅ marge fixe de 2px (modifie si tu veux exact)
+        float margin = 2f;
+        ort.sizeDelta = itemSize + new Vector2(margin, margin);
     }
 
 
@@ -225,9 +264,44 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         tooltipVisible = false;
     }
 
+    private ItemUI GetItemUnderMouse()
+    {
+        if (UnityEngine.EventSystems.EventSystem.current == null)
+            return null;
+
+        var pointerData = new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current)
+        {
+            position = Input.mousePosition
+        };
+
+        var results = new System.Collections.Generic.List<UnityEngine.EventSystems.RaycastResult>();
+        UnityEngine.EventSystems.EventSystem.current.RaycastAll(pointerData, results);
+
+        foreach (var r in results)
+        {
+            var item = r.gameObject.GetComponentInParent<ItemUI>();
+            if (item != null)
+                return item;
+        }
+
+        return null;
+    }
+    private void HandleRotationInput()
+    {
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            ItemUI hoveredItem = GetItemUnderMouse();
+            if (hoveredItem != null)
+            {
+                hoveredItem.RotateItem();
+            }
+        }
+    }
+
     void Update()
     {
         if (tooltip == null || itemData == null) return;
+
         if (isHovering && !tooltipVisible)
         {
             timer += Time.deltaTime;
@@ -237,5 +311,12 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
                 tooltipVisible = true;
             }
         }
+
+        // 🔁 Rotation avec touche R
+        if (isHovering && Input.GetKeyDown(KeyCode.R))
+        {
+            RotateItem();
+        }
+        HandleRotationInput();
     }
 }

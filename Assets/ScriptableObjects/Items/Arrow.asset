@@ -10,16 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c115733830494f941b0de54785fd4664, type: 3}
-  m_Name: Potion
+  m_Name: Arrow
   m_EditorClassIdentifier: 
-  itemName: Potion
-  prefabName: Potion
-  description: peut soigner
-  icon: {fileID: 10901, guid: 0000000000000000f000000000000000, type: 0}
-  width: 4
-  height: 2
+  itemName: Arrow
+  prefabName: Arrow
+  description: Arrow
+  icon: {fileID: 10913, guid: 0000000000000000f000000000000000, type: 0}
+  width: 2
+  height: 1
   isEquipable: 1
   equipmentType: Weapon
-  worldPrefab: {fileID: 7270623352238282856, guid: 4c52b5c79894e4340bd96bda37ad22cf, type: 3}
-  isStackable: 0
-  maxStack: 1
+  worldPrefab: {fileID: 2633781803846598537, guid: 0d5c70a8aaa3a7c4d943f776625d237d, type: 3}
+  isStackable: 1
+  maxStack: 3

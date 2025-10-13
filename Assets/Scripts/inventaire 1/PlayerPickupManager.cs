@@ -1,5 +1,6 @@
-﻿// PlayerPickupManager.cs
-using UnityEngine;
+﻿using UnityEngine;
+using UnityEngine.EventSystems;
+using System.Collections.Generic;
 
 public class PlayerPickupManager : MonoBehaviour
 {
@@ -12,7 +13,6 @@ public class PlayerPickupManager : MonoBehaviour
     private InventoryManager inventoryManager;
     private Transform playerTransform;
     [SerializeField] private Transform dropPoint;
-
 
     private void Awake()
     {
@@ -33,7 +33,6 @@ public class PlayerPickupManager : MonoBehaviour
     {
         if (inventoryManager == null) return;
 
-        // Cherche tous les WorldItem actifs (FindObjectsByType rapide si pas besoin de tri)
         WorldItem[] worldItems = FindObjectsByType<WorldItem>(FindObjectsSortMode.None);
         WorldItem nearest = null;
         float best = float.MaxValue;
@@ -54,7 +53,6 @@ public class PlayerPickupManager : MonoBehaviour
             bool added = inventoryManager.AddItem(nearest.itemData);
             if (added)
             {
-                // Desactive l'objet dans le monde (ou Destruct)
                 nearest.OnPickedUp();
             }
             else
@@ -76,36 +74,42 @@ public class PlayerPickupManager : MonoBehaviour
             return;
         }
 
-        ItemUI lastItem = inv.GetLastItem();
-        if (lastItem == null || lastItem.itemData == null)
+        // 🔍 1️⃣ Détecter si la souris survole un ItemUI
+        ItemUI targetItem = GetItemUnderMouse();
+
+        // Sinon fallback sur le dernier
+        ItemUI itemToDrop = targetItem ?? inv.GetLastItem();
+
+        if (itemToDrop == null || itemToDrop.itemData == null)
         {
             isDropping = false;
             return;
         }
 
+        // Position de drop devant le joueur
         Vector3 dropPos = dropPoint != null
             ? dropPoint.position
             : transform.position + transform.forward * 1.5f + Vector3.up * 0.5f;
 
         // === CAS 1 : stackable ===
-        if (lastItem.itemData.isStackable)
+        if (itemToDrop.itemData.isStackable)
         {
-            if (lastItem.currentStack > 1)
+            if (itemToDrop.currentStack > 1)
             {
-                // drop UN seul item du stack
-                Instantiate(lastItem.itemData.worldPrefab, dropPos, Quaternion.identity);
+                // Drop 1 seul item du stack
+                Instantiate(itemToDrop.itemData.worldPrefab, dropPos, Quaternion.identity);
 
-                lastItem.currentStack--;
-                lastItem.UpdateStackText();
+                itemToDrop.currentStack--;
+                itemToDrop.UpdateStackText();
 
-                Debug.Log($"Drop 1 {lastItem.itemData.itemName}. Reste : {lastItem.currentStack}");
+                Debug.Log($"[Drop] 1x {itemToDrop.itemData.itemName} (reste {itemToDrop.currentStack})");
             }
             else
             {
-                // dernier item du stack → drop et retire de l’inventaire
-                Instantiate(lastItem.itemData.worldPrefab, dropPos, Quaternion.identity);
-                inv.RemoveItem(lastItem);
-                Debug.Log($"Drop complet de {lastItem.itemData.itemName}");
+                // Drop complet
+                Instantiate(itemToDrop.itemData.worldPrefab, dropPos, Quaternion.identity);
+                inv.RemoveItem(itemToDrop);
+                Debug.Log($"[Drop] Stack complet de {itemToDrop.itemData.itemName}");
             }
 
             isDropping = false;
@@ -113,10 +117,33 @@ public class PlayerPickupManager : MonoBehaviour
         }
 
         // === CAS 2 : non stackable ===
-        Instantiate(lastItem.itemData.worldPrefab, dropPos, Quaternion.identity);
-        inv.RemoveItem(lastItem);
+        Instantiate(itemToDrop.itemData.worldPrefab, dropPos, Quaternion.identity);
+        inv.RemoveItem(itemToDrop);
+        Debug.Log($"[Drop] Item unique {itemToDrop.itemData.itemName}");
 
-        Debug.Log($"Drop item unique {lastItem.itemData.itemName}");
         isDropping = false;
+    }
+
+    /// <summary>
+    /// Retourne l'ItemUI actuellement sous le curseur souris (ou null)
+    /// </summary>
+    private ItemUI GetItemUnderMouse()
+    {
+        PointerEventData pointerData = new PointerEventData(EventSystem.current)
+        {
+            position = Input.mousePosition
+        };
+
+        List<RaycastResult> results = new List<RaycastResult>();
+        EventSystem.current.RaycastAll(pointerData, results);
+
+        foreach (var r in results)
+        {
+            ItemUI item = r.gameObject.GetComponentInParent<ItemUI>();
+            if (item != null)
+                return item;
+        }
+
+        return null;
     }
 }

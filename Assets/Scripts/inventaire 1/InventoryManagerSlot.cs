@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 public class InventoryManager : MonoBehaviour
 {
@@ -189,6 +190,9 @@ public class InventoryManager : MonoBehaviour
     // Place un ItemUI (UI existant) dans la grille à startX,startY
     public bool PlaceItem(ItemUI itemUI, int startX, int startY)
     {
+        startX = Mathf.Clamp(startX, 0, width - itemUI.itemData.width);
+        startY = Mathf.Clamp(startY, 0, height - itemUI.itemData.height);
+
         if (itemUI == null || itemUI.itemData == null) return false;
         ItemData item = itemUI.itemData;
 
@@ -243,10 +247,6 @@ public class InventoryManager : MonoBehaviour
         // ✅ On ajoute le padding gauche / haut
         float xPx = padLeft + startX * (cellW + spacingX);
         float yPx = padTop + startY * (cellH + spacingY);
-
-        // ✅ Correction d’alignement subtile
-        xPx += 1.5f;   // léger ajustement à droite
-        yPx += 1.5f;   // léger ajustement vers le bas (note : inversé ensuite)
 
         itRect.anchoredPosition = new Vector2(xPx, -yPx);
 
@@ -334,8 +334,6 @@ public class InventoryManager : MonoBehaviour
         return true;
     }
 
-
-
     // Retire l'ItemUI (libère les slots et détruit l'UI)
     public void RemoveItem(ItemUI itemUI)
     {
@@ -358,6 +356,101 @@ public class InventoryManager : MonoBehaviour
             Destroy(itemUI.gameObject);
 
         Debug.Log($"Item supprimé. Il reste {inventoryItems.Count} items dans l’inventaire.");
+    }
+
+    private bool TryGetHoverItemAndSlot(out ItemUI item, out Slot slot)
+    {
+        item = null; slot = null;
+        if (EventSystem.current == null) return false;
+
+        var data = new PointerEventData(EventSystem.current) { position = Input.mousePosition };
+        var hits = new List<RaycastResult>();
+        EventSystem.current.RaycastAll(data, hits);
+
+        foreach (var h in hits)
+        {
+            if (item == null)
+                item = h.gameObject.GetComponentInParent<ItemUI>();
+
+            var s = h.gameObject.GetComponentInParent<Slot>();
+            if (s != null) slot = s;
+
+            if (item != null && slot != null) break;
+        }
+
+        // fallback : si on a un slot occupé mais pas l'ItemUI via raycast, on le récupère depuis le slot
+        if (item == null && slot != null && slot.HasItem())
+            item = slot.GetItem();
+
+        return item != null;
+    }
+
+    public bool TryRotateSmart(ItemUI itemUI, Slot biasSlot)
+{
+    if (itemUI == null || itemUI.itemData == null || itemUI.currentSlot == null)
+        return false;
+
+    var data = itemUI.itemData;
+    int oldW = data.width;
+    int oldH = data.height;
+    int newW = oldH;
+    int newH = oldW;
+
+    int sx = itemUI.currentSlot.x; // top-left actuel
+    int sy = itemUI.currentSlot.y;
+
+    // === Appliquer temporairement la rotation pour test ===
+    data.width = newW;
+    data.height = newH;
+
+    // --- Test 1 : rotation sur place (même coin top-left)
+    if (CanPlaceItem(sx, sy, data, itemUI))
+    {
+        return PlaceItem(itemUI, sx, sy);
+    }
+
+    // --- Test 2 : selon orientation actuelle, on teste juste 2 directions opposées ---
+    // (pas les 4 coins ni de décalage de plusieurs slots)
+
+    // Si l'item est vertical (plus haut que large)
+    if (oldH > oldW)
+    {
+        // → essayer pivot à droite (décale juste si encore dans la grille)
+        if (sx + oldH <= width && CanPlaceItem(sx + (oldH - oldW), sy, data, itemUI))
+            return PlaceItem(itemUI, sx + (oldH - oldW), sy);
+
+        // → sinon, essayer pivot à gauche
+        if (sx - (newW - oldW) >= 0 && CanPlaceItem(sx - (newW - oldW), sy, data, itemUI))
+            return PlaceItem(itemUI, sx - (newW - oldW), sy);
+    }
+    // Si l'item est horizontal (plus large que haut)
+    else if (oldW > oldH)
+    {
+        // → essayer pivot vers le bas
+        if (sy + oldW <= height && CanPlaceItem(sx, sy + (oldW - oldH), data, itemUI))
+            return PlaceItem(itemUI, sx, sy + (oldW - oldH));
+
+        // → sinon, essayer pivot vers le haut
+        if (sy - (newH - oldH) >= 0 && CanPlaceItem(sx, sy - (newH - oldH), data, itemUI))
+            return PlaceItem(itemUI, sx, sy - (newH - oldH));
+    }
+
+    // --- Sinon : impossible de pivoter, on revert ---
+    data.width = oldW;
+    data.height = oldH;
+    return false;
+}
+
+
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            if (TryGetHoverItemAndSlot(out var hoveredItem, out var hoveredSlot))
+            {
+                TryRotateSmart(hoveredItem, hoveredSlot);
+            }
+        }
     }
 
     public void AddToInventoryList(ItemUI itemUI)
