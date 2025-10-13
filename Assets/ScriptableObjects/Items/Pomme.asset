@@ -16,10 +16,11 @@ MonoBehaviour:
   prefabName: Pomme
   description: Pomme
   icon: {fileID: 10913, guid: 0000000000000000f000000000000000, type: 0}
-  width: 3
-  height: 3
+  width: 1
+  height: 1
   isEquipable: 0
-  equipmentType: 
+  equipSlotType: 0
   worldPrefab: {fileID: 3508697957024044450, guid: 11278ef1ee7679d46907b02e98dfbf53, type: 3}
   isStackable: 1
   maxStack: 5
+  worldStackMode: 1

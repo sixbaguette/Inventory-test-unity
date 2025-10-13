@@ -30,11 +30,25 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     private float hoverTime = 1f;
     private float timer = 0f;
 
+    [Header("Hover visuals")]
+    public Image hoverBackground;
+
+    public Color hoverColor = new Color(1f, 0.9f, 0.3f, 0.35f); // jaune
+    public Color normalColor = new Color(1f, 0.9f, 0.3f, 0f);
+
+    public float hoverScale = 1.05f;
+    public float hoverFadeTime = 0.1f;
+
+    [HideInInspector] public bool isBeingDragged = false;
+
+
     private void Awake()
     {
         rectTransform = GetComponent<RectTransform>();
         tooltip = FindFirstObjectByType<Tooltip>();
         StoreOriginalState(); // stocke l'état initial
+        if (hoverBackground != null)
+            hoverBackground.color = normalColor;
     }
 
     public void Setup(ItemData newItemData)
@@ -50,6 +64,7 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         EnsureChildLayout();
         UpdateSize();
         UpdateOutline();
+        ResetVisualLayout();
         StoreOriginalState();
         UpdateStackText();
     }
@@ -157,7 +172,12 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             irt.pivot = new Vector2(0.5f, 0.5f);
             irt.anchoredPosition = Vector2.zero;
             irt.sizeDelta = newSize;              // <- point clé
-                                                  // (optionnel) si tu utilises PreserveAspect, laisse coché, sinon décoche
+            ResetVisualLayout();
+        }
+        if (hoverBackground != null)
+        {
+            hoverBackground.rectTransform.sizeDelta = rectTransform.sizeDelta;
+            hoverBackground.rectTransform.anchoredPosition = Vector2.zero;
         }
     }
 
@@ -250,6 +270,39 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         // ✅ marge fixe de 2px (modifie si tu veux exact)
         float margin = 2f;
         ort.sizeDelta = itemSize + new Vector2(margin, margin);
+
+        if (outline != null)
+            outline.rectTransform.localEulerAngles = Vector3.zero;
+    }
+
+    public void ResetVisualLayout()
+    {
+        // parent ItemUI (déjà positionné par InventoryManager)
+        if (rectTransform == null) rectTransform = GetComponent<RectTransform>();
+
+        // ICON : stretch plein parent, rotation 0
+        if (icon != null)
+        {
+            var rt = icon.rectTransform;
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = Vector2.zero;
+            rt.localEulerAngles = Vector3.zero;
+            icon.preserveAspect = false; // IMPORTANT sinon elle ne remplit pas
+        }
+
+        // OUTLINE : stretch plein parent (ou taille via UpdateOutline), rotation 0
+        if (outline != null)
+        {
+            var ort = outline.rectTransform;
+            ort.anchorMin = new Vector2(0.5f, 0.5f);
+            ort.anchorMax = new Vector2(0.5f, 0.5f);
+            ort.pivot = new Vector2(0.5f, 0.5f);
+            ort.anchoredPosition = Vector2.zero;
+            ort.localEulerAngles = Vector3.zero;
+        }
     }
 
 
@@ -289,24 +342,66 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     {
         if (eventData.button == PointerEventData.InputButton.Right)
         {
-            if (itemData.isStackable && currentStack > 1)
-            {
-                SplitStackWindow.Instance?.Open(this);
-            }
+            if (ContextMenuUI.Instance != null)
+                ContextMenuUI.Instance.Show(this, eventData.position);
         }
     }
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        isHovering = true;
-        timer = 0f;
-        tooltipVisible = false;
+        if (isBeingDragged) return; // ne rien faire pendant drag
+
+        // === FOND JAUNE ===
+        if (hoverBackground != null)
+        {
+            hoverBackground.rectTransform.sizeDelta = rectTransform.sizeDelta;
+            hoverBackground.rectTransform.anchoredPosition = Vector2.zero;
+            hoverBackground.transform.SetAsFirstSibling();
+
+            LeanTween.cancel(hoverBackground.gameObject);
+            hoverBackground.color = normalColor;
+
+            LeanTween.value(hoverBackground.gameObject, 0f, 1f, hoverFadeTime)
+                .setOnUpdate((float val) =>
+                {
+                    Color c = hoverColor;
+                    c.a = hoverColor.a * val;
+                    hoverBackground.color = c;
+                });
+            LeanTween.scale(hoverBackground.rectTransform, Vector3.one * hoverScale, hoverFadeTime).setEaseOutCubic();
+        }
+
+        // === OUTLINE ===
+        if (outline != null)
+        {
+            LeanTween.cancel(outline.gameObject);
+            LeanTween.scale(outline.rectTransform, Vector3.one * hoverScale, hoverFadeTime).setEaseOutCubic();
+        }
     }
+
     public void OnPointerExit(PointerEventData eventData)
     {
-        isHovering = false;
-        if (tooltipVisible && tooltip != null) tooltip.Hide();
-        tooltipVisible = false;
+        if (isBeingDragged) return;
+
+        if (hoverBackground != null)
+        {
+            LeanTween.cancel(hoverBackground.gameObject);
+            LeanTween.value(hoverBackground.gameObject, hoverBackground.color.a, 0f, hoverFadeTime)
+                .setOnUpdate((float val) =>
+                {
+                    Color c = hoverColor;
+                    c.a = val;
+                    hoverBackground.color = c;
+                })
+                .setOnComplete(() => { hoverBackground.color = normalColor; });
+            LeanTween.scale(hoverBackground.rectTransform, Vector3.one, hoverFadeTime).setEaseInCubic();
+        }
+
+        if (outline != null)
+        {
+            LeanTween.cancel(outline.gameObject);
+            LeanTween.scale(outline.rectTransform, Vector3.one, hoverFadeTime).setEaseInCubic();
+        }
     }
 
     private ItemUI GetItemUnderMouse()

@@ -4,42 +4,114 @@ using UnityEngine.UI;
 public class InventoryToggle : MonoBehaviour
 {
     [Header("Références UI")]
-    public GameObject inventoryUI;       // Le parent des slots et items
-    public KeyCode toggleKey = KeyCode.I; // Touche pour ouvrir/fermer
+    public GameObject inventoryUI;        // parent du Canvas d’inventaire
+    public CanvasGroup canvasGroup;       // ajoute un CanvasGroup sur le même objet
+    public KeyCode toggleKey = KeyCode.I; // touche d’ouverture
+
+    [Header("Player Controls")]
+    public MonoBehaviour firstPersonController; // ton script FPS
 
     [Header("Bouton optionnel")]
     public Button toggleButton;
 
     private bool isOpen = false;
+    private bool isAnimating = false;
 
     private void Start()
     {
         if (toggleButton != null)
             toggleButton.onClick.AddListener(ToggleInventory);
 
-        // 🔥 Active temporairement le Canvas pour initialiser la grille
+        // 🔥 Active temporairement le Canvas pour init la grille
         inventoryUI.SetActive(true);
         InventoryManager.Instance.InitializeGrid();
         inventoryUI.SetActive(false);
-    }
 
+        // S’assure que le CanvasGroup est présent
+        if (canvasGroup == null)
+        {
+            canvasGroup = inventoryUI.GetComponent<CanvasGroup>();
+            if (canvasGroup == null)
+                canvasGroup = inventoryUI.AddComponent<CanvasGroup>();
+        }
+
+        canvasGroup.alpha = 0;
+        inventoryUI.transform.localScale = Vector3.zero;
+        inventoryUI.SetActive(false);
+    }
 
     private void Update()
     {
         if (Input.GetKeyDown(toggleKey))
-        {
             ToggleInventory();
-        }
     }
 
     public void ToggleInventory()
     {
+        if (isAnimating) return; // bloque le spam pendant l’anim
         isOpen = !isOpen;
-        inventoryUI.SetActive(isOpen);
-        //InventoryManager.Instance.SetInventoryVisible(isOpen);
 
-        // Optionnel : on bloque le curseur si fermé
-        Cursor.visible = isOpen;
-        Cursor.lockState = isOpen ? CursorLockMode.None : CursorLockMode.Locked;
+        if (isOpen)
+            OpenInventory();
+        else
+            CloseInventory();
+    }
+
+    private void OpenInventory()
+    {
+        inventoryUI.SetActive(true);
+        isAnimating = true;
+
+        // réinit
+        canvasGroup.alpha = 0f;
+        inventoryUI.transform.localScale = Vector3.zero;
+
+        // fade + scale
+        LeanTween.value(inventoryUI, 0f, 1f, 0.25f)
+            .setEaseOutCubic()
+            .setOnUpdate((float val) =>
+            {
+                canvasGroup.alpha = val;
+                inventoryUI.transform.localScale = Vector3.one * val;
+            })
+            .setOnComplete(() =>
+            {
+                canvasGroup.alpha = 1f;
+                inventoryUI.transform.localScale = Vector3.one;
+                isAnimating = false;
+            });
+
+        // Curseur visible
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
+        // 🔥 désactive les contrôles FPS
+        if (firstPersonController != null)
+            firstPersonController.enabled = false;
+    }
+
+    private void CloseInventory()
+    {
+        isAnimating = true;
+
+        // fade out + shrink
+        LeanTween.value(inventoryUI, 1f, 0f, 0.2f)
+            .setEaseInBack()
+            .setOnUpdate((float val) =>
+            {
+                canvasGroup.alpha = val;
+                inventoryUI.transform.localScale = Vector3.one * val;
+            })
+            .setOnComplete(() =>
+            {
+                inventoryUI.SetActive(false);
+                isAnimating = false;
+            });
+
+        // Cache le curseur
+        Cursor.visible = false;
+        Cursor.lockState = CursorLockMode.Locked;
+        // 🔥 réactive les contrôles FPS
+        if (firstPersonController != null)
+            firstPersonController.enabled = true;
     }
 }

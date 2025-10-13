@@ -283,6 +283,14 @@ public class InventoryManager : MonoBehaviour
         itemUI.UpdateOutline();
         itemUI.UpdateSize();
 
+        // Reset l’orientation visuelle après placement
+        if (itemUI.icon != null)
+            itemUI.icon.rectTransform.localEulerAngles = Vector3.zero;
+        if (itemUI.outline != null)
+            itemUI.outline.rectTransform.localEulerAngles = Vector3.zero;
+
+        itemUI.ResetVisualLayout(); // garantit 0° + centrage après pose
+
         return true;
     }
 
@@ -325,8 +333,9 @@ public class InventoryManager : MonoBehaviour
             }
 
             // Crée une copie unique de l’ItemData pour chaque ItemUI
-            ItemData runtimeCopy = ScriptableObject.Instantiate(data);
-            itemUI.Setup(runtimeCopy);
+            //ItemData runtimeCopy = ScriptableObject.Instantiate(data);
+            //itemUI.Setup(runtimeCopy);
+            itemUI.Setup(data);
 
             inventoryItems.Add(itemUI);
 

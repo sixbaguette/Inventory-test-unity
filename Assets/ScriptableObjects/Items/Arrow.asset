@@ -19,7 +19,8 @@ MonoBehaviour:
   width: 2
   height: 1
   isEquipable: 1
-  equipmentType: Weapon
+  equipSlotType: 1
   worldPrefab: {fileID: 2633781803846598537, guid: 0d5c70a8aaa3a7c4d943f776625d237d, type: 3}
   isStackable: 1
   maxStack: 3
+  worldStackMode: 1

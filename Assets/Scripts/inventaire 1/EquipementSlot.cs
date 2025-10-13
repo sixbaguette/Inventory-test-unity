@@ -5,8 +5,8 @@ using UnityEngine.UI;
 public class EquipementSlot : MonoBehaviour, IDropHandler
 {
     [Header("Type d’équipement accepté")]
-    public string slotType; // ex : "Weapon", "Armor"
     public Image iconDisplay;
+    public EquipSlotType slotType = EquipSlotType.None;  // plus de string ici
 
     private ItemUI currentItem;
     public ItemUI CurrentItem => currentItem;
@@ -14,8 +14,13 @@ public class EquipementSlot : MonoBehaviour, IDropHandler
     public bool IsCompatible(ItemData item)
     {
         if (item == null) return false;
-        if (string.IsNullOrEmpty(slotType)) return true;
-        return item.equipmentType == slotType;
+        if (!item.isEquipable) return false;
+
+        // si le slot accepte tout
+        if (slotType == EquipSlotType.None) return true;
+
+        // comparaison enum <-> enum (pas de string)
+        return item.equipSlotType == slotType;
     }
 
     public void OnDrop(PointerEventData eventData)
@@ -101,10 +106,8 @@ public class EquipementSlot : MonoBehaviour, IDropHandler
 
         // === 5️⃣ Devant visuellement ===
         itemUI.transform.SetAsLastSibling();
+        itemUI.ResetVisualLayout();
     }
-
-
-
 
     public void UnequipItem()
     {
@@ -143,5 +146,6 @@ public class EquipementSlot : MonoBehaviour, IDropHandler
                 itemUI.UpdateOutline();
             }
         }
+        itemUI.ResetVisualLayout();
     }
 }

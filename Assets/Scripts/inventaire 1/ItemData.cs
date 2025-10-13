@@ -1,5 +1,19 @@
 using UnityEngine;
 
+public enum EquipSlotType
+{
+    None,
+    Weapon,
+    Armor,
+    Backpack
+}
+
+public enum WorldStackMode
+{
+    SingleObjectWithCount,   // A : un seul objet 3D avec une valeur interne
+    MultipleObjects          // B : plusieurs objets 3D distincts
+}
+
 [CreateAssetMenu(fileName = "New Item", menuName = "Inventory/Item")]
 public class ItemData : ScriptableObject
 {
@@ -13,7 +27,7 @@ public class ItemData : ScriptableObject
     public int width = 1;
     public int height = 1;
     public bool isEquipable = false;
-    public string equipmentType;
+    public EquipSlotType equipSlotType = EquipSlotType.None;
 
     [Header("Monde (3D)")]
     public GameObject worldPrefab; // <-- le prefab 3D du monde
@@ -22,4 +36,5 @@ public class ItemData : ScriptableObject
     public bool isStackable = false;
     [Range(1, 999)]
     public int maxStack = 1;
+    public WorldStackMode worldStackMode = WorldStackMode.MultipleObjects;
 }

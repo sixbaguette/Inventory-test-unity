@@ -16,6 +16,7 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
     private Vector2 dragOffset;   // souris → centre de l’objet
     private Vector2 startMousePos;
     private Vector2 startItemPos;
+    private int preDragX = -1, preDragY = -1;
 
     private void Awake()
     {
@@ -37,15 +38,23 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
     {
         if (itemUI == null || itemUI.itemData == null) return;
 
-        // swap width/height sur LA COPIE runtime
-        int oldW = itemUI.itemData.width;
-        int oldH = itemUI.itemData.height;
-        itemUI.itemData.width = oldH;
-        itemUI.itemData.height = oldW;
+        // swap logique
+        int w = itemUI.itemData.width;
+        int h = itemUI.itemData.height;
+        itemUI.itemData.width = h;
+        itemUI.itemData.height = w;
 
-        // recalcul visuel — l’icône et l’outline suivent si configurés en stretch (voir ci-dessous)
+        // MAJ visuelle
         itemUI.UpdateSize();
         itemUI.UpdateOutline();
+        itemUI.ResetVisualLayout();  // <- clé : remet icon/outline centrés à 0°
+
+        // feedback visuel (optionnel, pas de rotation)
+        LeanTween.cancel(itemUI.gameObject);
+        itemUI.transform.localScale = Vector3.one;
+        LeanTween.scale(itemUI.gameObject, Vector3.one * 1.05f, 0.08f)
+                 .setEaseOutBack()
+                 .setOnComplete(() => itemUI.transform.localScale = Vector3.one);
     }
 
     public void OnBeginDrag(PointerEventData eventData)
@@ -81,6 +90,17 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
 
         startItemPos = rectTransform.anchoredPosition;
         dragOffset = startItemPos - startMousePos;
+
+        // sauve la dernière case valide
+        if (itemUI != null && itemUI.currentSlot != null)
+        {
+            preDragX = itemUI.currentSlot.x;
+            preDragY = itemUI.currentSlot.y;
+        }
+        else
+        {
+            preDragX = preDragY = -1;
+        }
 
         // Recalage visuel
         itemUI.UpdateSize();
@@ -268,25 +288,23 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
 
         if (!placed)
         {
-            // ❌ Placement échoué : on restaure l’état précédent
-            Debug.Log("[OnEndDrag] Placement impossible, retour position/rotation initiale");
-
-            // Reviens à la rotation d’origine
-            if (itemUI.itemData.width != lastValidSize.x || itemUI.itemData.height != lastValidSize.y)
+            // 1) Revenir EXACTEMENT à la dernière position valide si on l’a
+            if (preDragX >= 0 && preDragY >= 0)
             {
-                int tmp = itemUI.itemData.width;
-                itemUI.itemData.width = itemUI.itemData.height;
-                itemUI.itemData.height = tmp;
+                InventoryManager.Instance.PlaceItem(itemUI, preDragX, preDragY);
+            }
+            else if (itemUI.currentSlot != null)
+            {
+                // fallback si on a au moins une case
+                InventoryManager.Instance.PlaceItem(itemUI, itemUI.currentSlot.x, itemUI.currentSlot.y);
             }
 
-            // Replace à sa position d’origine
-            inv.PlaceItem(itemUI, lastValidPos.x, lastValidPos.y);
-        }
-        else
-        {
-            // ✅ placement réussi, on met à jour la dernière position connue
-            lastValidPos = new Vector2Int(startX, startY);
-            lastValidSize = new Vector2Int(itemUI.itemData.width, itemUI.itemData.height);
+            // 2) Forcer la MAJ du layout, puis secouer l’item (pas la grille)
+            Canvas.ForceUpdateCanvases();
+            LeanTween.delayedCall(0.01f, () =>
+            {
+                UIEffects.Shake(itemUI.rectTransform, 8f, 0.25f);
+            });
         }
 
         canvasGroup.blocksRaycasts = true;

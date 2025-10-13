@@ -24,41 +24,51 @@ public class PlayerPickupManager : MonoBehaviour
     {
         if (Input.GetKeyDown(pickupKey))
             TryPickup();
-
-        if (Input.GetKeyDown(dropKey))
-            TryDrop();
     }
 
     private void TryPickup()
     {
         if (inventoryManager == null) return;
 
-        WorldItem[] worldItems = FindObjectsByType<WorldItem>(FindObjectsSortMode.None);
-        WorldItem nearest = null;
-        float best = float.MaxValue;
-
-        foreach (var wi in worldItems)
+        Camera cam = Camera.main;
+        if (cam == null)
         {
-            if (!wi.gameObject.activeInHierarchy) continue;
-            float d = Vector3.Distance(playerTransform.position, wi.transform.position);
-            if (d <= pickupRange && d < best)
-            {
-                best = d;
-                nearest = wi;
-            }
+            Debug.LogWarning("[Pickup] Aucune caméra trouvée !");
+            return;
         }
 
-        if (nearest != null)
+        // 🔫 Raycast droit devant le joueur
+        Ray ray = new Ray(cam.transform.position, cam.transform.forward);
+        RaycastHit hit;
+
+        if (Physics.Raycast(ray, out hit, pickupRange))
         {
-            bool added = inventoryManager.AddItem(nearest.itemData);
-            if (added)
+            WorldItem wi = hit.collider.GetComponentInParent<WorldItem>();
+            if (wi != null && wi.itemData != null)
             {
-                nearest.OnPickedUp();
+                // ✅ Utilise le vrai stackCount du WorldItem touché
+                int amount = wi.itemData.isStackable ? Mathf.Max(1, wi.stackCount) : 1;
+
+                bool added = InventoryManager.Instance.AddItem(wi.itemData, amount);
+                Debug.Log($"[Pickup] Ajout de {amount}x {wi.itemData.itemName} → {(added ? "OK" : "ÉCHEC")}");
+
+                if (added)
+                {
+                    wi.OnPickedUp(); // détruit l’objet ramassé
+                }
+                else
+                {
+                    Debug.Log("[Pickup] Inventaire plein ou ajout impossible : " + wi.itemData.itemName);
+                }
             }
             else
             {
-                Debug.Log("[Pickup] Impossible d'ajouter item (inventaire plein ?) : " + nearest.itemData.itemName);
+                Debug.Log("[Pickup] Aucun WorldItem trouvé sur l’objet visé.");
             }
+        }
+        else
+        {
+            Debug.Log("[Pickup] Aucun objet ramassable devant toi.");
         }
     }
 
@@ -74,10 +84,7 @@ public class PlayerPickupManager : MonoBehaviour
             return;
         }
 
-        // 🔍 1️⃣ Détecter si la souris survole un ItemUI
         ItemUI targetItem = GetItemUnderMouse();
-
-        // Sinon fallback sur le dernier
         ItemUI itemToDrop = targetItem ?? inv.GetLastItem();
 
         if (itemToDrop == null || itemToDrop.itemData == null)
@@ -86,30 +93,44 @@ public class PlayerPickupManager : MonoBehaviour
             return;
         }
 
-        // Position de drop devant le joueur
         Vector3 dropPos = dropPoint != null
             ? dropPoint.position
             : transform.position + transform.forward * 1.5f + Vector3.up * 0.5f;
 
+        ItemData data = itemToDrop.itemData;
+
         // === CAS 1 : stackable ===
-        if (itemToDrop.itemData.isStackable)
+        if (data.isStackable)
         {
             if (itemToDrop.currentStack > 1)
             {
-                // Drop 1 seul item du stack
-                Instantiate(itemToDrop.itemData.worldPrefab, dropPos, Quaternion.identity);
+                // 🟡 On drop 1 seul item du stack
+                GameObject go = Instantiate(data.worldPrefab, dropPos, Quaternion.identity);
+                WorldItem wi = go.GetComponent<WorldItem>();
+                if (wi != null)
+                {
+                    wi.itemData = data;
+                    wi.SetStackCount(1); // ✅ très important : stackCount = 1
+                }
 
                 itemToDrop.currentStack--;
                 itemToDrop.UpdateStackText();
 
-                Debug.Log($"[Drop] 1x {itemToDrop.itemData.itemName} (reste {itemToDrop.currentStack})");
+                Debug.Log($"[Drop] 1x {data.itemName} (reste {itemToDrop.currentStack})");
             }
             else
             {
-                // Drop complet
-                Instantiate(itemToDrop.itemData.worldPrefab, dropPos, Quaternion.identity);
+                // Drop complet du stack restant
+                GameObject go = Instantiate(data.worldPrefab, dropPos, Quaternion.identity);
+                WorldItem wi = go.GetComponent<WorldItem>();
+                if (wi != null)
+                {
+                    wi.itemData = data;
+                    wi.SetStackCount(itemToDrop.currentStack); // il ne reste qu’un
+                }
+
                 inv.RemoveItem(itemToDrop);
-                Debug.Log($"[Drop] Stack complet de {itemToDrop.itemData.itemName}");
+                Debug.Log($"[Drop] Stack complet de {data.itemName}");
             }
 
             isDropping = false;
@@ -117,11 +138,109 @@ public class PlayerPickupManager : MonoBehaviour
         }
 
         // === CAS 2 : non stackable ===
-        Instantiate(itemToDrop.itemData.worldPrefab, dropPos, Quaternion.identity);
+        Instantiate(data.worldPrefab, dropPos, Quaternion.identity);
         inv.RemoveItem(itemToDrop);
-        Debug.Log($"[Drop] Item unique {itemToDrop.itemData.itemName}");
+        Debug.Log($"[Drop] Item unique {data.itemName}");
 
         isDropping = false;
+    }
+
+    public void DropSpecificItem(ItemUI itemToDrop)
+    {
+        if (itemToDrop == null || itemToDrop.itemData == null) return;
+
+        var inv = InventoryManager.Instance;
+        if (inv == null) return;
+
+        Vector3 dropPos = dropPoint != null
+            ? dropPoint.position
+            : transform.position + transform.forward * 1.5f + Vector3.up * 0.5f;
+
+        ItemData data = itemToDrop.itemData;
+
+        // === Item stackable ===
+        if (data.isStackable)
+        {
+            if (itemToDrop.currentStack > 1)
+            {
+                // 🔹 on drop UN seul exemplaire
+                GameObject go = Instantiate(data.worldPrefab, dropPos, Quaternion.identity);
+                WorldItem wi = go.GetComponent<WorldItem>();
+                if (wi != null)
+                {
+                    wi.itemData = data;
+                    wi.SetStackCount(1); // ⬅️ CRUCIAL : l’objet au sol vaut 1
+                }
+
+                itemToDrop.currentStack--;
+                itemToDrop.UpdateStackText();
+
+                Debug.Log($"[Drop] 1x {data.itemName} (reste {itemToDrop.currentStack})");
+            }
+            else
+            {
+                // 🔹 dernier exemplaire du stack → drop 1 et retire l’UI
+                GameObject go = Instantiate(data.worldPrefab, dropPos, Quaternion.identity);
+                WorldItem wi = go.GetComponent<WorldItem>();
+                if (wi != null)
+                {
+                    wi.itemData = data;
+                    wi.SetStackCount(1); // ⬅️ ici aussi : 1, pas la valeur du prefab
+                }
+
+                inv.RemoveItem(itemToDrop);
+                Debug.Log($"[Drop] Dernier exemplaire de {data.itemName}");
+            }
+
+            return;
+        }
+
+        // === Item non stackable ===
+        Instantiate(data.worldPrefab, dropPos, Quaternion.identity);
+        inv.RemoveItem(itemToDrop);
+        Debug.Log($"[Drop] Item unique {data.itemName}");
+    }
+
+    public void DropEntireStack(ItemUI itemToDrop)
+    {
+        if (itemToDrop == null || itemToDrop.itemData == null) return;
+
+        var inv = InventoryManager.Instance;
+        if (inv == null) return;
+
+        Vector3 dropPos = dropPoint != null
+            ? dropPoint.position
+            : transform.position + transform.forward * 1.5f + Vector3.up * 0.5f;
+
+        ItemData data = itemToDrop.itemData;
+
+        if (data.worldStackMode == WorldStackMode.SingleObjectWithCount)
+        {
+            // ✅ A : un seul objet 3D avec stackCount interne
+            GameObject go = Instantiate(data.worldPrefab, dropPos, Quaternion.identity);
+            WorldItem wi = go.GetComponent<WorldItem>();
+            if (wi != null)
+            {
+                wi.itemData = data;
+                wi.SetStackCount(itemToDrop.currentStack);
+            }
+        }
+        else
+        {
+            // ✅ B : plusieurs objets 3D distincts
+            for (int i = 0; i < itemToDrop.currentStack; i++)
+            {
+                Vector3 offset = new Vector3(
+                    Random.Range(-0.05f, 0.05f),
+                    0f,
+                    Random.Range(-0.05f, 0.05f)
+                );
+                Instantiate(data.worldPrefab, dropPos + offset, Quaternion.identity);
+            }
+        }
+
+        inv.RemoveItem(itemToDrop);
+        Debug.Log($"[DropStack] {itemToDrop.currentStack}x {data.itemName} droppés !");
     }
 
     /// <summary>
