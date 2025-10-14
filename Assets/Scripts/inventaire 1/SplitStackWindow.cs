@@ -54,34 +54,64 @@ public class SplitStackWindow : MonoBehaviour
 
         if (int.TryParse(inputField.text, out int amount))
         {
-            // empêche un split invalide (ex. 0 ou >= stack total)
+            // ⚙️ Empêche un split invalide
             amount = Mathf.Clamp(amount, 1, sourceItem.currentStack - 1);
 
-            // ✅ Vérifie d'abord s’il y a de la place libre dans l’inventaire
-            if (!InventoryManager.Instance.FindFirstFreePosition(sourceItem.itemData, out int x, out int y))
+            var inv = InventoryManager.Instance;
+            var data = sourceItem.itemData;
+
+            // ✅ D’abord, on cherche une place libre normalement
+            bool placed = inv.FindFirstFreePosition(data, out int x, out int y);
+
+            // 🌀 Si aucune place dans l’orientation actuelle, tente la rotation inverse
+            if (!placed)
             {
-                Debug.LogWarning("[Split] Inventaire plein, impossible de séparer le stack !");
-                // Optionnel : feedback visuel
-                Close();
-                return;
+                int oldW = data.width;
+                int oldH = data.height;
+                data.width = oldH;
+                data.height = oldW;
+
+                placed = inv.FindFirstFreePosition(data, out x, out y);
+
+                if (placed)
+                {
+                    // Ajuste la taille visuelle du nouvel item après rotation
+                    data.width = oldH;
+                    data.height = oldW;
+                }
+                else
+                {
+                    // revert si aucune place même pivoté
+                    data.width = oldW;
+                    data.height = oldH;
+
+                    Debug.LogWarning("[Split] Inventaire plein, aucune place dans aucune orientation !");
+                    Close();
+                    return;
+                }
             }
 
             // ✅ Réduit le stack d’origine
             sourceItem.currentStack -= amount;
             sourceItem.UpdateStackText();
 
-            // ✅ Crée le nouveau stack seulement si place trouvée
-            GameObject go = Instantiate(InventoryManager.Instance.itemUIPrefab, InventoryManager.Instance.itemsLayer);
+            // ✅ Crée le nouveau stack
+            GameObject go = Instantiate(inv.itemUIPrefab, inv.itemsLayer);
             ItemUI newStack = go.GetComponent<ItemUI>();
             newStack.Setup(sourceItem.itemData);
             newStack.currentStack = amount;
             newStack.UpdateStackText();
 
-            // ✅ Ajoute le nouvel item à la liste interne (important pour le drop / gestion)
-            InventoryManager.Instance.AddToInventoryList(newStack);
+            // ✅ Ajoute à la liste interne
+            inv.AddToInventoryList(newStack);
 
-            // ✅ Place le nouveau stack à la position trouvée
-            InventoryManager.Instance.PlaceItem(newStack, x, y);
+            // ✅ Place le nouvel item dans la grille
+            inv.PlaceItem(newStack, x, y);
+
+            // ✅ Ajuste son visuel à la bonne rotation
+            newStack.UpdateSize();
+            newStack.UpdateOutline();
+            newStack.ResetVisualLayout();
 
             Debug.Log($"[Split] Nouveau stack de {amount} créé pour {sourceItem.itemData.itemName}");
         }

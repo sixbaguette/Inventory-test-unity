@@ -116,18 +116,56 @@ public class EquipementSlot : MonoBehaviour, IDropHandler
         var item = currentItem;
         currentItem = null;
 
-        // ✅ Replace dans la grille
-        if (InventoryManager.Instance.FindFirstFreePosition(item.itemData, out int x, out int y))
+        var inv = InventoryManager.Instance;
+        if (inv == null || inv.itemsLayer == null)
         {
-            InventoryManager.Instance.PlaceItem(item, x, y);
+            Debug.LogWarning("[Unequip] InventoryManager/itemsLayer manquant");
+            return;
+        }
+
+        // Reparent vers la couche ItemsLayer du canvas d’inventaire
+        Canvas targetCanvas = inv.itemsLayer.GetComponentInParent<Canvas>();
+        Canvas itemCanvas = item.GetComponentInParent<Canvas>();
+
+        if (targetCanvas != null && itemCanvas != targetCanvas)
+        {
+            Vector2 screenPos = RectTransformUtility.WorldToScreenPoint(
+                itemCanvas ? itemCanvas.worldCamera : null,
+                item.rectTransform.position
+            );
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                targetCanvas.transform as RectTransform,
+                screenPos,
+                targetCanvas.worldCamera,
+                out var localPos
+            );
+
+            item.transform.SetParent(inv.itemsLayer.transform, false);
+            item.rectTransform.localPosition = localPos;
         }
         else
         {
-            item.RestoreOriginalState();
+            item.transform.SetParent(inv.itemsLayer.transform, false);
         }
 
-        if (iconDisplay != null)
-            iconDisplay.enabled = true;
+        // Sécurité UI
+        var cg = item.GetComponent<CanvasGroup>();
+        if (cg) cg.blocksRaycasts = true;
+
+        // Nettoyages visuels
+        item.UpdateSize();
+        item.UpdateOutline();
+        item.ResetVisualLayout();
+
+        // Placement (avec rotation auto si nécessaire)
+        if (!inv.TryAutoPlace(item))
+        {
+            // Si aucune place -> fallback : restore ou autre logique (drop, message, etc.)
+            item.RestoreOriginalState();
+            Debug.Log("[Unequip] Aucune place disponible (toutes orientations).");
+        }
+
+        if (iconDisplay != null) iconDisplay.enabled = true;
     }
 
     public void ForceClear(ItemUI itemUI)

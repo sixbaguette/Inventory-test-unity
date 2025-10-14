@@ -397,4 +397,95 @@ public class InventoryManager : MonoBehaviour
         if (!inventoryItems.Contains(itemUI))
             inventoryItems.Add(itemUI);
     }
+
+    public void QuickTransfer(ItemUI itemUI)
+    {
+        if (itemUI == null || itemUI.itemData == null)
+            return;
+
+        ItemData data = itemUI.itemData;
+
+        // 🧭 Vérifie si l'item est actuellement dans un slot d'équipement
+        bool isInEquipment = EquipementManager.Instance.equipSlots != null &&
+                             System.Array.Exists(EquipementManager.Instance.equipSlots,
+                                 s => s != null && s.CurrentItem == itemUI);
+
+        // 1️⃣ Si l’objet est déjà équipé → le renvoyer dans l’inventaire
+        if (isInEquipment)
+        {
+            EquipementManager.Instance.UnequipItem(itemUI);
+
+            if (InventoryAudioManager.Instance != null)
+            {
+                InventoryAudioManager.Instance.Play("close_inventory"); // ou un son de "range / holster"
+            }
+
+            Debug.Log($"[QuickTransfer] {data.itemName} retiré de l'équipement via Shift + Clic.");
+            return;
+        }
+
+        // 2️⃣ Sinon, si l’objet est dans l’inventaire et équipable → on tente de l’équiper
+        if (data.isEquipable)
+        {
+            bool equipped = EquipementManager.Instance.TryEquipItem(itemUI);
+            if (equipped)
+            {
+                if (InventoryAudioManager.Instance != null)
+                {
+                    if (data.equipSlotType == EquipSlotType.Primary || data.equipSlotType == EquipSlotType.Secondary)
+                        InventoryAudioManager.Instance.Play("equip_weapon");
+                    else
+                        InventoryAudioManager.Instance.Play("equip_armor");
+                }
+
+                Debug.Log($"[QuickTransfer] {data.itemName} équipé automatiquement via Shift + Clic.");
+                return;
+            }
+        }
+
+        // 3️⃣ Plus tard : gérer le transfert vers coffre ou autre conteneur
+        Debug.Log($"[QuickTransfer] Aucun slot compatible libre pour {data.itemName}.");
+    }
+
+    public bool TryAutoPlace(ItemUI item)
+    {
+        if (item == null || item.itemData == null) return false;
+
+        // 1) Essai orientation actuelle
+        if (FindFirstFreePosition(item.itemData, out int x, out int y))
+        {
+            // Visuel propre (au cas où)
+            item.UpdateSize();
+            item.UpdateOutline();
+            item.ResetVisualLayout();
+            return PlaceItem(item, x, y);
+        }
+
+        // 2) Essai orientation pivotée (⚠️ sans appeler RotateItem)
+        int oldW = item.itemData.width;
+        int oldH = item.itemData.height;
+
+        item.itemData.width = oldH;
+        item.itemData.height = oldW;
+
+        bool ok = FindFirstFreePosition(item.itemData, out x, out y);
+        if (ok)
+        {
+            // On garde cette orientation (données déjà échangées)
+            // ➜ MAJ visuelle SANS ré-échanger les données
+            item.UpdateSize();
+            item.UpdateOutline();
+            item.ResetVisualLayout();
+
+            return PlaceItem(item, x, y);
+        }
+
+        // 3) Rien trouvé → revert et échec
+        item.itemData.width = oldW;
+        item.itemData.height = oldH;
+        item.UpdateSize();
+        item.UpdateOutline();
+        item.ResetVisualLayout();
+        return false;
+    }
 }

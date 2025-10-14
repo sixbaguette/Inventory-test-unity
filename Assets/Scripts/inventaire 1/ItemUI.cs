@@ -340,6 +340,20 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
     public void OnPointerClick(PointerEventData eventData)
     {
+        // ✅ Quick transfer (Shift + clic gauche)
+        if (eventData.button == PointerEventData.InputButton.Left)
+        {
+            if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
+            {
+                if (InventoryManager.Instance != null)
+                {
+                    InventoryManager.Instance.QuickTransfer(this);
+                    return; // stoppe ici pour ne pas ouvrir le menu contextuel
+                }
+            }
+        }
+
+        // 🎯 Menu contextuel (clic droit)
         if (eventData.button == PointerEventData.InputButton.Right)
         {
             if (ContextMenuUI.Instance != null)
