@@ -10,17 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c115733830494f941b0de54785fd4664, type: 3}
-  m_Name: Munition
+  m_Name: Casque
   m_EditorClassIdentifier: 
-  itemName: Munition
-  prefabName: munition
-  description: des Munition
-  icon: {fileID: 21300000, guid: 53293bb25a334a446bc064b77e357bae, type: 3}
+  itemName: Casque
+  prefabName: casque
+  description: un Casque
+  icon: {fileID: 21300000, guid: f1ae0dbbbc63a874d8813dd15cddff94, type: 3}
   width: 2
-  height: 1
+  height: 2
   isEquipable: 1
-  equipSlotType: 3
-  worldPrefab: {fileID: 848554633087692977, guid: 8b8473daaed51de43b9f7a8308473b93, type: 3}
-  isStackable: 1
-  maxStack: 50
-  worldStackMode: 0
+  equipSlotType: 5
+  worldPrefab: {fileID: 7600172012837011108, guid: 7cb74d610007d334bbd2e0664e627ce8, type: 3}
+  isStackable: 0
+  maxStack: 1
+  worldStackMode: 1

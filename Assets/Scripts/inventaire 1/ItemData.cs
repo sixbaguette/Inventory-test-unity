@@ -3,8 +3,12 @@ using UnityEngine;
 public enum EquipSlotType
 {
     None,
-    Weapon,
+    Primary,
+    Secondary,
+    Equipement,
     Armor,
+    Helmet,
+    Legging,
     Backpack
 }
 

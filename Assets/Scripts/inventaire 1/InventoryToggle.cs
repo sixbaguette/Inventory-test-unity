@@ -66,6 +66,9 @@ public class InventoryToggle : MonoBehaviour
         canvasGroup.alpha = 0f;
         inventoryUI.transform.localScale = Vector3.zero;
 
+        if (InventoryAudioManager.Instance != null)
+            InventoryAudioManager.Instance.Play("open_inventory");
+
         // fade + scale
         LeanTween.value(inventoryUI, 0f, 1f, 0.25f)
             .setEaseOutCubic()
@@ -92,6 +95,9 @@ public class InventoryToggle : MonoBehaviour
     private void CloseInventory()
     {
         isAnimating = true;
+
+        if (InventoryAudioManager.Instance != null)
+            InventoryAudioManager.Instance.Play("close_inventory");
 
         // fade out + shrink
         LeanTween.value(inventoryUI, 1f, 0f, 0.2f)

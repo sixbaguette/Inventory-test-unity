@@ -10,17 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c115733830494f941b0de54785fd4664, type: 3}
-  m_Name: Munition
+  m_Name: Armure
   m_EditorClassIdentifier: 
-  itemName: Munition
-  prefabName: munition
-  description: des Munition
-  icon: {fileID: 21300000, guid: 53293bb25a334a446bc064b77e357bae, type: 3}
-  width: 2
-  height: 1
+  itemName: Armure
+  prefabName: armure
+  description: une Armure
+  icon: {fileID: 21300000, guid: 1bbca94c729bea1488b68b05943f0e98, type: 3}
+  width: 3
+  height: 3
   isEquipable: 1
-  equipSlotType: 3
-  worldPrefab: {fileID: 848554633087692977, guid: 8b8473daaed51de43b9f7a8308473b93, type: 3}
-  isStackable: 1
-  maxStack: 50
-  worldStackMode: 0
+  equipSlotType: 4
+  worldPrefab: {fileID: 8033782918543325919, guid: b1eced00d05f95e42b088004a81e70d1, type: 3}
+  isStackable: 0
+  maxStack: 1
+  worldStackMode: 1

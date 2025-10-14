@@ -10,17 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c115733830494f941b0de54785fd4664, type: 3}
-  m_Name: Munition
+  m_Name: Bandage
   m_EditorClassIdentifier: 
-  itemName: Munition
-  prefabName: munition
-  description: des Munition
-  icon: {fileID: 21300000, guid: 53293bb25a334a446bc064b77e357bae, type: 3}
+  itemName: Bandage
+  prefabName: bandage
+  description: un Bandage
+  icon: {fileID: 21300000, guid: 58ef2d2b236b4204db705b7d063edbe6, type: 3}
   width: 2
   height: 1
   isEquipable: 1
   equipSlotType: 3
-  worldPrefab: {fileID: 848554633087692977, guid: 8b8473daaed51de43b9f7a8308473b93, type: 3}
+  worldPrefab: {fileID: 7065714680782593815, guid: 4458968772d727c4492c58a4d15e23fe, type: 3}
   isStackable: 1
-  maxStack: 50
-  worldStackMode: 0
+  maxStack: 10
+  worldStackMode: 1
