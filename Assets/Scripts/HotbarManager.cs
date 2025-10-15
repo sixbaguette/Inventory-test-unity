@@ -50,7 +50,14 @@ public class HotbarManager : MonoBehaviour
         if (index < 0 || index >= hotbarSlots.Count) return;
 
         var slot = hotbarSlots[index].linkedSlot;
-        if (slot == null || slot.CurrentItem == null) return;
+
+        // ✅ Si le slot est vide, on déséquipe
+        if (slot == null || slot.CurrentItem == null)
+        {
+            Debug.Log("[Hotbar] Slot " + (index + 1) + " vide -> déséquipement de la main.");
+            UnequipCurrent();
+            return;
+        }
 
         ItemData item = slot.CurrentItem.itemData;
 

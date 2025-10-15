@@ -113,6 +113,13 @@ public class InventoryToggle : MonoBehaviour
                 isAnimating = false;
             });
 
+        // Ferme aussi le mode inspecteur 3D s’il est ouvert
+        Tooltip tooltip = FindFirstObjectByType<Tooltip>();
+        if (tooltip != null && tooltip.IsInspecting)
+        {
+            tooltip.HideAll();
+        }
+
         // Cache le curseur
         Cursor.visible = false;
         Cursor.lockState = CursorLockMode.Locked;

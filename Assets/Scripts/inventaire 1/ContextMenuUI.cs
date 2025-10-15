@@ -125,16 +125,15 @@ public class ContextMenuUI : MonoBehaviour
             Hide();
         });
 
-        // 🔸 Inspect
         inspectButton.onClick.AddListener(() =>
         {
             Tooltip tooltip = FindFirstObjectByType<Tooltip>();
             if (tooltip != null)
             {
-                if (tooltip.background.activeSelf)
-                    tooltip.Hide();
+                if (tooltip.IsInspecting)
+                    tooltip.HideAll();
                 else
-                    tooltip.Show(currentItem.itemData);
+                    tooltip.ShowInspect3D(currentItem.itemData);
             }
             Hide();
         });
@@ -272,15 +271,16 @@ public class ContextMenuUI : MonoBehaviour
         Tooltip tooltip = FindFirstObjectByType<Tooltip>();
         if (tooltip != null)
         {
-            // Si le tooltip est déjà affiché pour le même item → on le ferme
-            if (tooltip.background.activeSelf &&
-                tooltip.itemNameText.text == currentItem.itemData.itemName)
+            // Si le mode inspecteur 3D est déjà actif → le fermer
+            var bg = tooltip.background;
+            if (bg != null && bg.activeSelf && tooltip.renderDisplay != null && tooltip.renderDisplay.gameObject.activeSelf)
             {
-                tooltip.Hide();
+                tooltip.CloseInspect3D();
             }
             else
             {
-                tooltip.Show(currentItem.itemData);
+                // Ouvre le mode Inspect 3D complet
+                tooltip.ShowInspect3D(currentItem.itemData);
             }
         }
 

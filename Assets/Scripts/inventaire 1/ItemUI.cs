@@ -452,17 +452,30 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         }
     }
 
+    public void ForceHideTooltip()
+    {
+        if (tooltip != null)
+        {
+            tooltip.HideAll();
+        }
+        tooltipVisible = false;
+        isHovering = false;
+        timer = 0f;
+    }
+
     void Update()
     {
-        if (tooltip == null || itemData == null) return;
-
         if (isHovering && !tooltipVisible)
         {
             timer += Time.deltaTime;
             if (timer >= hoverTime)
             {
-                tooltip.Show(itemData);
-                tooltipVisible = true;
+                // ⬇️ nouveau garde-fou
+                if (tooltip != null && tooltip.CanShowHover())
+                {
+                    tooltip.Show(itemData);
+                    tooltipVisible = true;
+                }
             }
         }
 
