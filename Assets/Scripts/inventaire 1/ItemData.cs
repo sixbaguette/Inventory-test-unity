@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public enum EquipSlotType
 {
@@ -18,10 +18,17 @@ public enum WorldStackMode
     MultipleObjects          // B : plusieurs objets 3D distincts
 }
 
+public enum BulletType
+{
+    Cal9mm,
+    Cal556,
+    Cal762
+}
+
 [CreateAssetMenu(fileName = "New Item", menuName = "Inventory/Item")]
 public class ItemData : ScriptableObject
 {
-    [Header("Infos g�n�rales")]
+    [Header("Infos générales")]
     public string itemName;
     public string prefabName; // nom du prefab dans Resources/WorldItems
     [TextArea] public string description;
@@ -41,4 +48,25 @@ public class ItemData : ScriptableObject
     [Range(1, 999)]
     public int maxStack = 1;
     public WorldStackMode worldStackMode = WorldStackMode.MultipleObjects;
+
+    [Header("Gun Settings")]
+    public bool isGun;
+    public float damage;
+    public float fireRate;
+    public float reloadTime;
+    public float bulletSpeed;
+    public int ammoCapacity;
+    public float aimSpeed;
+    public BulletType bulletType;          // ✅ utilise ton enum BulletType
+
+    [Header("Ammo Settings")]
+    public bool isAmmo;            // Si cet item est une balle
+    public BulletType ammoType;    // Type de balle qu’il représente
+
+    [Header("Gun References")]
+    public GameObject bulletPrefab;        // ✅ le prefab de ta balle
+    public AudioClip fireSound;            // ✅ son du tir
+    public AudioClip reloadSound;          // ✅ son du rechargement
+    public AudioClip emptyClickSound;
+    public ParticleSystem muzzleFlash;     // ✅ effet visuel de tir
 }

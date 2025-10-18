@@ -84,5 +84,18 @@ public class EquipementManager : MonoBehaviour
         slot.UnequipItem();
 
         Debug.Log($"[Unequip] {itemUI.itemData.itemName} retiré du slot {slot.name}");
+
+        // 👇 AJOUTE ÇA :
+        // 🔫 Si c’était une arme, on la retire visuellement aussi
+        if (itemUI.itemData != null &&
+            (itemUI.itemData.equipSlotType == EquipSlotType.Primary || itemUI.itemData.equipSlotType == EquipSlotType.Secondary))
+        {
+            var hotbar = FindFirstObjectByType<HotbarManager>();
+            if (hotbar != null && hotbar.playerEquipHandler != null)
+            {
+                hotbar.playerEquipHandler.UnequipAll();
+                Debug.Log("[EquipementManager] Arme retirée visuellement du joueur");
+            }
+        }
     }
 }

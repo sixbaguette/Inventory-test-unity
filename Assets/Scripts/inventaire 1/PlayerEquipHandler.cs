@@ -17,13 +17,21 @@ public class PlayerEquipHandler : MonoBehaviour
         if (itemData == null || itemData.worldPrefab == null)
             return;
 
-        // Instancie le prefab
+        // Instancie le prefab dans la main
         currentEquippedObject = Instantiate(itemData.worldPrefab, handSocket);
         currentEquippedObject.transform.localPosition = Vector3.zero;
         currentEquippedObject.transform.localRotation = Quaternion.identity;
 
-        // 🔹 Désactive physique et collisions
         DisablePhysics(currentEquippedObject);
+
+        // 🔫 Si c’est une arme
+        GunSystem gun = currentEquippedObject.GetComponent<GunSystem>();
+        if (itemData.isGun && gun != null)
+        {
+            gun.handSocket = handSocket; // 👈 très important
+            gun.EquipWeapon(itemData);
+            gun.enabled = true;
+        }
 
         Debug.Log($"[EquipHandler] Équipé {itemData.itemName}");
     }

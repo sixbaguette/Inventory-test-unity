@@ -488,4 +488,36 @@ public class InventoryManager : MonoBehaviour
         item.ResetVisualLayout();
         return false;
     }
+
+    // 🔫 Consomme des balles compatibles dans l'inventaire
+    public int ConsumeAmmo(BulletType type, int needed)
+    {
+        int collected = 0;
+
+        // copie la liste car on peut modifier pendant l’itération
+        var itemsCopy = new List<ItemUI>(inventoryItems);
+
+        foreach (var item in itemsCopy)
+        {
+            if (item == null || item.itemData == null)
+                continue;
+
+            if (item.itemData.isAmmo && item.itemData.ammoType == type)
+            {
+                int take = Mathf.Min(item.currentStack, needed - collected);
+                collected += take;
+                item.currentStack -= take;
+                item.UpdateStackText();
+
+                if (item.currentStack <= 0)
+                    RemoveItem(item);
+
+                if (collected >= needed)
+                    break;
+            }
+        }
+
+        Debug.Log($"[InventoryManager] → {collected} balles de type {type} consommées");
+        return collected;
+    }
 }
