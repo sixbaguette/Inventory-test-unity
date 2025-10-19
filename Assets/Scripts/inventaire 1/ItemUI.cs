@@ -41,6 +41,7 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
     [HideInInspector] public bool isBeingDragged = false;
 
+    public int currentAmmo = -1; // -1 = pas encore initialisé
 
     private void Awake()
     {

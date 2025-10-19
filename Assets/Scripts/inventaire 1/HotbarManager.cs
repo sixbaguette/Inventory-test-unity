@@ -63,9 +63,9 @@ public class HotbarManager : MonoBehaviour
 
         if (playerEquipHandler != null)
         {
-            if (item != null && item.worldPrefab != null)
+            if (slot != null && slot.CurrentItem != null && slot.CurrentItem.itemData != null)
             {
-                playerEquipHandler.EquipItem(item);
+                playerEquipHandler.EquipItem(slot.CurrentItem.itemData, slot.CurrentItem);
             }
             else
             {

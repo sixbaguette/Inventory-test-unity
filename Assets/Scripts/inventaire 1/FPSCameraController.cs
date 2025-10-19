@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class FPSCameraController : MonoBehaviour
 {
@@ -13,6 +13,10 @@ public class FPSCameraController : MonoBehaviour
 
     void Update()
     {
+        // 🛑 Si l’inventaire est ouvert → on bloque la caméra
+        if (InventoryToggle.IsInventoryOpen)
+            return;
+
         float mouseX = Input.GetAxis("Mouse X") * sensitivity * Time.deltaTime;
         float mouseY = Input.GetAxis("Mouse Y") * sensitivity * Time.deltaTime;
 

@@ -15,6 +15,7 @@ public class InventoryToggle : MonoBehaviour
     public Button toggleButton;
 
     private bool isOpen = false;
+    public static bool IsInventoryOpen = false;
     private bool isAnimating = false;
 
     private void Start()
@@ -59,6 +60,7 @@ public class InventoryToggle : MonoBehaviour
 
     private void OpenInventory()
     {
+        IsInventoryOpen = true;
         inventoryUI.SetActive(true);
         isAnimating = true;
 
@@ -94,6 +96,7 @@ public class InventoryToggle : MonoBehaviour
 
     private void CloseInventory()
     {
+        IsInventoryOpen = false;
         isAnimating = true;
 
         if (InventoryAudioManager.Instance != null)

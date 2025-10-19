@@ -49,16 +49,37 @@ public class PlayerPickupManager : MonoBehaviour
                 // ✅ Utilise le vrai stackCount du WorldItem touché
                 int amount = wi.itemData.isStackable ? Mathf.Max(1, wi.stackCount) : 1;
 
-                bool added = InventoryManager.Instance.AddItem(wi.itemData, amount);
-                Debug.Log($"[Pickup] Ajout de {amount}x {wi.itemData.itemName} → {(added ? "OK" : "ÉCHEC")}");
-
-                if (added)
+                // === Arme ou objet classique ===
+                if (wi.itemData.isGun)
                 {
-                    wi.OnPickedUp(); // détruit l’objet ramassé
+                    // Ajoute normalement
+                    bool added = InventoryManager.Instance.AddItem(wi.itemData, amount);
+
+                    if (added)
+                    {
+                        // ✅ Récupère l’ItemUI nouvellement créé
+                        ItemUI newUI = InventoryManager.Instance.GetLastItem();
+                        if (newUI != null)
+                        {
+                            newUI.currentAmmo = wi.currentAmmo; // conserve le chargeur
+                            Debug.Log($"[Pickup] Arme '{wi.itemData.itemName}' ramassée avec {wi.currentAmmo} balles");
+                        }
+
+                        wi.OnPickedUp();
+                    }
+                    else
+                    {
+                        Debug.Log("[Pickup] Inventaire plein ou ajout impossible : " + wi.itemData.itemName);
+                    }
                 }
                 else
                 {
-                    Debug.Log("[Pickup] Inventaire plein ou ajout impossible : " + wi.itemData.itemName);
+                    // comportement normal (stackables, objets simples)
+                    bool added = InventoryManager.Instance.AddItem(wi.itemData, amount);
+                    Debug.Log($"[Pickup] Ajout de {amount}x {wi.itemData.itemName} → {(added ? "OK" : "ÉCHEC")}");
+
+                    if (added)
+                        wi.OnPickedUp();
                 }
             }
             else
@@ -137,10 +158,19 @@ public class PlayerPickupManager : MonoBehaviour
             return;
         }
 
-        // === CAS 2 : non stackable ===
-        Instantiate(data.worldPrefab, dropPos, Quaternion.identity);
+        GameObject droppedObj = Instantiate(data.worldPrefab, dropPos, Quaternion.identity);
+        WorldItem droppedWorldItem = droppedObj.GetComponent<WorldItem>();
+        if (droppedWorldItem != null)
+        {
+            droppedWorldItem.itemData = data;
+
+            if (data.isGun)
+            {
+                droppedWorldItem.currentAmmo = itemToDrop.currentAmmo; // ✅ conserve les balles restantes
+                Debug.Log($"[Drop] Arme '{data.itemName}' dropée avec {droppedWorldItem.currentAmmo} balles");
+            }
+        }
         inv.RemoveItem(itemToDrop);
-        Debug.Log($"[Drop] Item unique {data.itemName}");
 
         isDropping = false;
     }
@@ -195,10 +225,20 @@ public class PlayerPickupManager : MonoBehaviour
             return;
         }
 
-        // === Item non stackable ===
-        Instantiate(data.worldPrefab, dropPos, Quaternion.identity);
+        GameObject droppedObj = Instantiate(data.worldPrefab, dropPos, Quaternion.identity);
+        WorldItem droppedWorldItem = droppedObj.GetComponent<WorldItem>();
+        if (droppedWorldItem != null)
+        {
+            droppedWorldItem.itemData = data;
+
+            if (data.isGun)
+            {
+                droppedWorldItem.currentAmmo = itemToDrop.currentAmmo; // ✅ on copie le chargeur actuel
+                Debug.Log($"[DropSpecific] Arme '{data.itemName}' dropée avec {droppedWorldItem.currentAmmo} balles");
+            }
+        }
+
         inv.RemoveItem(itemToDrop);
-        Debug.Log($"[Drop] Item unique {data.itemName}");
     }
 
     public void DropEntireStack(ItemUI itemToDrop)

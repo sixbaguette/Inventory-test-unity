@@ -12,6 +12,9 @@ public class WorldItem : MonoBehaviour
     [Header("Affichage 3D (optionnel)")]
     public TextMeshPro countText; // world-space text au-dessus de l'objet
 
+    [Header("Runtime State")]
+    public int currentAmmo = -1; // -1 = non défini
+
     private void Start()
     {
         // 🛡️ Sécurité : s’il n’est pas stackable, toujours 1
@@ -23,6 +26,10 @@ public class WorldItem : MonoBehaviour
             stackCount = 1;
 
         UpdateVisual();
+
+        // Si c’est une arme et que currentAmmo n’a pas été défini → full par défaut
+        if (itemData != null && itemData.isGun && currentAmmo < 0)
+            currentAmmo = itemData.ammoCapacity;
     }
 
     public void UpdateVisual()

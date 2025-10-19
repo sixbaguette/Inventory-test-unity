@@ -1,6 +1,7 @@
 ﻿using System.Collections;
-using UnityEngine;
 using TMPro;
+using UnityEngine;
+using static UnityEditor.Progress;
 
 [RequireComponent(typeof(AudioSource))]
 public class GunSystem : MonoBehaviour
@@ -54,6 +55,9 @@ public class GunSystem : MonoBehaviour
     public enum FireMode { FullAuto, SemiAuto }
     public FireMode fireMode = FireMode.FullAuto;
 
+    public ItemUI linkedItemUI;
+    public InventoryItem linkedItem; // référence à l'objet d'inventaire actif
+
     void Awake()
     {
         enabled = false;
@@ -81,11 +85,21 @@ public class GunSystem : MonoBehaviour
             cameraTransform = playerCamera.transform;
         }
 
-        currentAmmo = weaponData != null ? weaponData.ammoCapacity : 0;
+        // ❌ NE PAS initialiser currentAmmo ici,
+        // il est défini dans EquipWeapon() (sinon reset du chargeur)
     }
 
     void Update()
     {
+        // 🛑 Blocage total si inventaire ouvert
+        if (InventoryToggle.IsInventoryOpen)
+        {
+            // 🔕 En option : tu peux aussi forcer la caméra FOV à revenir normal
+            if (playerCamera != null)
+                playerCamera.fieldOfView = normalFOV;
+            return;
+        }
+
         if (!weaponData || !weaponData.isGun) return;
         if (!gameObject.activeSelf) return;
 
@@ -96,6 +110,10 @@ public class GunSystem : MonoBehaviour
 
     void LateUpdate()
     {
+        // 🛑 Même principe ici (évite la visée et le recoil)
+        if (InventoryToggle.IsInventoryOpen)
+            return;
+
         if (!weaponData || !weaponData.isGun) return;
 
         HandleAiming();
@@ -180,6 +198,12 @@ public class GunSystem : MonoBehaviour
 
         currentAmmo--;
 
+        if (linkedItemUI != null)
+        {
+            linkedItemUI.currentAmmo = currentAmmo;
+            Debug.Log($"[GunSystem] Tir -> {currentAmmo} balles restantes (sauvegardé dans {linkedItemUI.name})");
+        }
+
         // 🎯 Recoil
         float recoilVertical = Random.Range(recoilUp * 0.8f, recoilUp * 1.2f);
         float recoilHorizontal = Random.Range(-recoilSide, recoilSide);
@@ -241,6 +265,9 @@ public class GunSystem : MonoBehaviour
         else
             Debug.Log("[GunSystem] ❌ Aucune balle compatible trouvée !");
 
+        if (linkedItemUI != null)
+            linkedItemUI.currentAmmo = currentAmmo;
+
         isReloading = false;
     }
 
@@ -290,11 +317,25 @@ public class GunSystem : MonoBehaviour
             ammoText.text = $"{currentAmmo} / {weaponData.ammoCapacity}";
     }
 
-    public void EquipWeapon(ItemData data)
+    public void EquipWeapon(ItemData data, ItemUI itemUI = null)
     {
         weaponData = data;
         enabled = true;
-        currentAmmo = weaponData.ammoCapacity;
+        linkedItemUI = itemUI;
+
+        if (linkedItemUI != null && linkedItemUI.currentAmmo >= 0)
+        {
+            currentAmmo = linkedItemUI.currentAmmo;
+            Debug.Log($"[GunSystem] Arme restaurée avec {currentAmmo} balles depuis {linkedItemUI.name}");
+        }
+        else
+        {
+            currentAmmo = weaponData.ammoCapacity;
+            Debug.Log($"[GunSystem] Arme initialisée full ({currentAmmo})");
+        }
+
+        nextShotTime = Time.time + 0.05f;
+
         if (hipPosition)
             transform.localPosition = hipPosition.localPosition;
         if (handSocket)

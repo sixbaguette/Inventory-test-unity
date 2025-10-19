@@ -10,26 +10,24 @@ public class PlayerEquipHandler : MonoBehaviour
     private List<Rigidbody> disabledRigidbodies = new List<Rigidbody>();
     private List<Collider> disabledColliders = new List<Collider>();
 
-    public void EquipItem(ItemData itemData)
+    public void EquipItem(ItemData itemData, ItemUI itemUI = null)
     {
         UnequipAll();
 
         if (itemData == null || itemData.worldPrefab == null)
             return;
 
-        // Instancie le prefab dans la main
         currentEquippedObject = Instantiate(itemData.worldPrefab, handSocket);
         currentEquippedObject.transform.localPosition = Vector3.zero;
         currentEquippedObject.transform.localRotation = Quaternion.identity;
 
         DisablePhysics(currentEquippedObject);
 
-        // 🔫 Si c’est une arme
         GunSystem gun = currentEquippedObject.GetComponent<GunSystem>();
         if (itemData.isGun && gun != null)
         {
-            gun.handSocket = handSocket; // 👈 très important
-            gun.EquipWeapon(itemData);
+            gun.handSocket = handSocket;
+            gun.EquipWeapon(itemData, itemUI); // 🆕 on passe le ItemUI ici
             gun.enabled = true;
         }
 
