@@ -57,6 +57,7 @@ public class GunSystem : MonoBehaviour
 
     public ItemUI linkedItemUI;
     public InventoryItem linkedItem; // référence à l'objet d'inventaire actif
+    private MuzzleFlashController muzzleFlashController;
 
     void Awake()
     {
@@ -85,6 +86,7 @@ public class GunSystem : MonoBehaviour
             cameraTransform = playerCamera.transform;
         }
 
+        muzzleFlashController = GetComponent<MuzzleFlashController>();
         // ❌ NE PAS initialiser currentAmmo ici,
         // il est défini dans EquipWeapon() (sinon reset du chargeur)
     }
@@ -215,6 +217,9 @@ public class GunSystem : MonoBehaviour
 
         // 🔙 petit recul physique du modèle
         targetWeaponRecoil += -Vector3.forward * recoilBack;
+
+        if (muzzleFlashController != null)
+            muzzleFlashController.PlayFlash();
     }
 
     // === 🔁 RELOAD ===

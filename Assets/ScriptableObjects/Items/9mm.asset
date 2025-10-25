@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c115733830494f941b0de54785fd4664, type: 3}
+  m_Name: 9mm
+  m_EditorClassIdentifier: 
+  itemName: 9mm
+  prefabName: 9mm
+  description: des Munition
+  icon: {fileID: 21300000, guid: 53293bb25a334a446bc064b77e357bae, type: 3}
+  width: 2
+  height: 1
+  isEquipable: 1
+  equipSlotType: 3
+  worldPrefab: {fileID: 848554633087692977, guid: 9a4f7c2a834549640997e3aa9383f0e3, type: 3}
+  isStackable: 1
+  maxStack: 50
+  worldStackMode: 0
+  isGun: 0
+  damage: 0
+  fireRate: 0
+  reloadTime: 0
+  bulletSpeed: 0
+  ammoCapacity: 0
+  aimSpeed: 0
+  bulletType: 0
+  isAmmo: 1
+  ammoType: 0
+  bulletPrefab: {fileID: 0}
+  fireSound: {fileID: 0}
+  reloadSound: {fileID: 0}
+  emptyClickSound: {fileID: 0}
+  muzzleFlash: {fileID: 0}
