@@ -58,7 +58,7 @@ public class InventoryToggle : MonoBehaviour
             CloseInventory();
     }
 
-    private void OpenInventory()
+    public void OpenInventory()
     {
         IsInventoryOpen = true;
         inventoryUI.SetActive(true);
@@ -92,6 +92,9 @@ public class InventoryToggle : MonoBehaviour
         // 🔥 désactive les contrôles FPS
         if (firstPersonController != null)
             firstPersonController.enabled = false;
+        // 🔥 Si un conteneur restait affiché (par bug) -> on le cache d’office
+        if (ContainerUIController.Instance != null)
+            ContainerUIController.Instance.CloseContainer();
     }
 
     private void CloseInventory()
@@ -129,5 +132,8 @@ public class InventoryToggle : MonoBehaviour
         // 🔥 réactive les contrôles FPS
         if (firstPersonController != null)
             firstPersonController.enabled = true;
+        // 🔥 Si un conteneur est ouvert, on le ferme proprement
+        if (ContainerUIController.Instance != null)
+            ContainerUIController.Instance.CloseContainer();
     }
 }
