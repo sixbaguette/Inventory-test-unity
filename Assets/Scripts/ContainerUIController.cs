@@ -64,7 +64,7 @@ public class ContainerUIController : MonoBehaviour
         containerUIRoot.SetActive(true);
         canvasGroup.alpha = 1;
         canvasGroup.interactable = true;
-        canvasGroup.blocksRaycasts = true;
+        canvasGroup.blocksRaycasts = false; // ✅ ne bloque pas les raycasts sur l'inventaire joueur
 
         currentContainer = container;
         containerInv.InitializeGrid();
@@ -76,6 +76,12 @@ public class ContainerUIController : MonoBehaviour
             LeanTween.cancel(playerGridPanel);
             Vector2 targetPos = originalPos + offsetWhenContainerOpen;
             LeanTween.move(playerGridPanel, targetPos, moveSpeed).setEaseOutCubic();
+            // 🟢 Déplace aussi la couche d'items du joueur pour suivre la grille
+            if (InventoryManager.Instance != null && InventoryManager.Instance.itemsLayer != null)
+            {
+                var layer = InventoryManager.Instance.itemsLayer;
+                LeanTween.move(layer, targetPos, moveSpeed).setEaseOutCubic();
+            }
             isMoved = true;
         }
 
@@ -104,6 +110,12 @@ public class ContainerUIController : MonoBehaviour
         {
             LeanTween.cancel(playerGridPanel);
             LeanTween.move(playerGridPanel, originalPos, moveSpeed).setEaseOutCubic();
+            // 🔵 Replace la couche d'items du joueur à sa position d'origine
+            if (InventoryManager.Instance != null && InventoryManager.Instance.itemsLayer != null)
+            {
+                var layer = InventoryManager.Instance.itemsLayer;
+                LeanTween.move(layer, originalPos, moveSpeed).setEaseOutCubic();
+            }
             isMoved = false;
         }
 
@@ -114,5 +126,12 @@ public class ContainerUIController : MonoBehaviour
 
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
+    }
+
+    public ContainerInventoryManager GetActiveContainerInventory()
+    {
+        if (containerInv != null && containerUIRoot.activeSelf)
+            return containerInv;
+        return null;
     }
 }

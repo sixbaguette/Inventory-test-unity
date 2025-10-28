@@ -187,65 +187,67 @@ public class InventoryManager : MonoBehaviour
     // Place un ItemUI (UI existant) dans la grille à startX,startY
     public bool PlaceItem(ItemUI itemUI, int startX, int startY)
     {
-        startX = Mathf.Clamp(startX, 0, width - itemUI.itemData.width);
-        startY = Mathf.Clamp(startY, 0, height - itemUI.itemData.height);
+        if (itemUI == null || itemUI.itemData == null)
+            return false;
 
-        if (itemUI == null || itemUI.itemData == null) return false;
         ItemData item = itemUI.itemData;
 
-        // Libère anciens slots
-        if (itemUI.occupiedSlots != null)
-            foreach (var s in itemUI.occupiedSlots) if (s != null) s.ClearItem();
+        // 🧩 Clamp la position pour éviter les dépassements
+        startX = Mathf.Clamp(startX, 0, width - item.width);
+        startY = Mathf.Clamp(startY, 0, height - item.height);
 
-        // --- libère proprement tous les anciens slots avant de tester ---
+        // 🔄 Libère les anciens slots de l'item s’il en avait
         if (itemUI.occupiedSlots != null)
         {
             foreach (var s in itemUI.occupiedSlots)
-            {
-                if (s != null)
-                    s.ClearItem();
-            }
+                if (s != null) s.ClearItem();
         }
 
-        // Vérifie place
+        // 🚫 Vérifie la place dispo avant d’essayer de poser
         if (!CanPlaceItem(startX, startY, item, itemUI))
         {
-            // si impossible → essayer de réassigner ancien emplacement (s'il existait)
+            // Essaye de revenir à l'ancien emplacement
             if (itemUI.currentSlot != null)
             {
                 itemUI.SetOccupiedSlots(itemUI.currentSlot.x, itemUI.currentSlot.y, item.width, item.height);
-                foreach (var s in itemUI.occupiedSlots) if (s != null) s.SetItem(itemUI);
+                foreach (var s in itemUI.occupiedSlots)
+                    if (s != null) s.SetItem(itemUI);
             }
             return false;
         }
 
-        // Vérifie qu'aucun autre item ne se trouve dans la zone cible
+        // ⚠️ Double sécurité : vérifie qu'aucun autre item ne bloque
         for (int yy = 0; yy < item.height; yy++)
         {
             for (int xx = 0; xx < item.width; xx++)
             {
                 int cx = startX + xx;
                 int cy = startY + yy;
-                if (slots[cx, cy].HasItem() && slots[cx, cy].GetItem() != itemUI)
+
+                if (cx < 0 || cy < 0 || cx >= width || cy >= height)
+                    continue;
+
+                var slot = slots[cx, cy];
+                if (slot.HasItem() && slot.GetItem() != itemUI)
                 {
-                    // ⚠️ un autre item occupe cet emplacement !
-                    Debug.LogWarning("[InventoryManager] Zone occupée, placement annulé");
+                    Debug.LogWarning("[ContainerInventory] Zone occupée, placement annulé.");
                     return false;
                 }
             }
         }
 
-        // Assigne les nouveaux slots
+        // ✅ Assigne les nouveaux slots
         itemUI.SetOccupiedSlots(startX, startY, item.width, item.height);
-        foreach (var s in itemUI.occupiedSlots) if (s != null) s.SetItem(itemUI);
+        foreach (var s in itemUI.occupiedSlots)
+            if (s != null) s.SetItem(itemUI);
 
-        // === POSITIONNEMENT PIXEL-PERFECT DANS ItemsLayer (PAS DANS UN SLOT) ===
-        if (itemsLayer == null) itemsLayer = slotParent as RectTransform; // fallback
+        // 🎯 Positionne l'item dans le layer visuel (ItemsLayer ou fallback)
+        if (itemsLayer == null)
+            itemsLayer = slotParent as RectTransform;
 
-        // Parent = ItemsLayer
         itemUI.transform.SetParent(itemsLayer, false);
 
-        // Récupère taille cellule + spacing
+        // 📏 Récupère infos du grid pour calculer la position
         var grid = slotParent.GetComponent<UnityEngine.UI.GridLayoutGroup>();
         float spacingX = grid ? grid.spacing.x : 0f;
         float spacingY = grid ? grid.spacing.y : 0f;
@@ -267,29 +269,50 @@ public class InventoryManager : MonoBehaviour
         itRect.pivot = new Vector2(0, 1);
         itRect.sizeDelta = desiredSize;
 
-        // ✅ On ajoute le padding gauche / haut
+        // ✅ Calcule position pixel parfaite (haut-gauche = origine)
         float xPx = padLeft + startX * (cellW + spacingX);
         float yPx = padTop + startY * (cellH + spacingY);
-
         itRect.anchoredPosition = new Vector2(xPx, -yPx);
 
-        // Devant visuellement
+        // 🔝 Met visuellement l'item au-dessus
         itemUI.transform.SetAsLastSibling();
 
-        // Mémorise le "slot d'origine" (utile pour revert)
+        // 🔖 Mémorise le premier slot (origine logique)
         itemUI.currentSlot = slots[startX, startY];
 
-        // Mets à jour outline/size (sécure)
-        itemUI.UpdateOutline();
+        // 🎨 Met à jour le visuel
         itemUI.UpdateSize();
+        itemUI.UpdateOutline();
+        itemUI.ResetVisualLayout();
+        itemUI.EnableRaycastAfterDrop(); // <--- ajoute ça
 
-        // Reset l’orientation visuelle après placement
+        // 🔧 Corrige rotation éventuelle
         if (itemUI.icon != null)
             itemUI.icon.rectTransform.localEulerAngles = Vector3.zero;
         if (itemUI.outline != null)
             itemUI.outline.rectTransform.localEulerAngles = Vector3.zero;
 
-        itemUI.ResetVisualLayout(); // garantit 0° + centrage après pose
+        // ✅ Assure la réactivation du CanvasGroup pour le redrag
+        var cg = itemUI.GetComponent<CanvasGroup>();
+        if (cg == null)
+            cg = itemUI.gameObject.AddComponent<CanvasGroup>();
+        cg.blocksRaycasts = true;
+        cg.interactable = true;
+        cg.alpha = 1f;
+
+        // ✅ Synchronise la source du drag
+        var drag = itemUI.GetComponent<ItemDrag>();
+        if (drag != null)
+        {
+            drag.itemUI = itemUI;
+            drag.sourcePlayerInv = this;
+            drag.sourceContainerInv = null;
+        }
+
+        // ✅ Réactive le raycast complet après placement
+        itemUI.EnableRaycastAfterDrop();
+        itemUI.transform.SetAsLastSibling();
+        itemUI.EnsureCanvasRaycastable();
 
         return true;
     }
@@ -519,5 +542,26 @@ public class InventoryManager : MonoBehaviour
 
         Debug.Log($"[InventoryManager] → {collected} balles de type {type} consommées");
         return collected;
+    }
+
+    // Détache l'item de l'inventaire joueur sans détruire l'UI
+    public void DetachWithoutDestroy(ItemUI ui)
+    {
+        if (ui == null) return;
+
+        // Enlève de la liste
+        if (inventoryItems.Contains(ui))
+            inventoryItems.Remove(ui);
+
+        // Libère les slots occupés
+        if (ui.occupiedSlots != null)
+        {
+            foreach (var s in ui.occupiedSlots)
+                if (s != null) s.ClearItem();
+        }
+
+        // Nettoie les refs d’emplacement
+        ui.occupiedSlots = null;
+        ui.currentSlot = null;
     }
 }

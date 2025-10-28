@@ -43,6 +43,8 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
     public int currentAmmo = -1; // -1 = pas encore initialisé
 
+    private UnityEngine.UI.Image hitbox; // image transparente raycastable
+
     private void Awake()
     {
         rectTransform = GetComponent<RectTransform>();
@@ -68,6 +70,7 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         ResetVisualLayout();
         StoreOriginalState();
         UpdateStackText();
+        EnsureRaycastable();
     }
 
 
@@ -180,6 +183,7 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             hoverBackground.rectTransform.sizeDelta = rectTransform.sizeDelta;
             hoverBackground.rectTransform.anchoredPosition = Vector2.zero;
         }
+        EnsureRaycastable();
     }
 
     public void EnsureChildLayout()
@@ -304,6 +308,7 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             ort.anchoredPosition = Vector2.zero;
             ort.localEulerAngles = Vector3.zero;
         }
+        EnsureRaycastable();
     }
 
 
@@ -486,5 +491,69 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             RotateItem();
         }
         HandleRotationInput();
+    }
+
+    private void EnsureRaycastable()
+    {
+        // 1) Racine : un Image ultra transparent pour capter les clics/drags
+        if (hitbox == null)
+            hitbox = GetComponent<UnityEngine.UI.Image>();
+        if (hitbox == null)
+            hitbox = gameObject.AddComponent<UnityEngine.UI.Image>();
+
+        hitbox.raycastTarget = true;
+        hitbox.maskable = false;
+        if (hitbox.color.a < 0.001f)
+            hitbox.color = new Color(1f, 1f, 1f, 0.001f); // quasi invisible mais “cliquable”
+
+        // 2) L’icône aussi raycastable (au cas où)
+        if (icon != null)
+        {
+            icon.raycastTarget = true;
+            icon.maskable = false;
+        }
+
+        // 3) CanvasGroup : interactif et laisse passer les events
+        var cg = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
+        cg.interactable = true;
+        cg.blocksRaycasts = true;
+        cg.alpha = 1f;
+    }
+
+    // Appelle ça à des moments clés :
+    public void EnableRaycastAfterDrop()
+    {
+        EnsureRaycastable();
+    }
+
+    public void EnsureCanvasRaycastable()
+    {
+        // ✅ S'assure qu'il y a un Canvas local
+        var canvas = GetComponentInParent<Canvas>();
+        if (canvas == null)
+        {
+            canvas = gameObject.AddComponent<Canvas>();
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = 50; // au-dessus de tout
+            Debug.Log("[ItemUI] Canvas ajouté sur " + name);
+        }
+
+        // ✅ Ajoute un GraphicRaycaster si manquant
+        if (canvas.GetComponent<UnityEngine.UI.GraphicRaycaster>() == null)
+            canvas.gameObject.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+
+        // ✅ Réactive le CanvasGroup
+        var cg = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
+        cg.blocksRaycasts = true;
+        cg.interactable = true;
+        cg.alpha = 1f;
+
+        // ✅ Image hitbox minimale pour capter les clics
+        var img = GetComponent<UnityEngine.UI.Image>() ?? gameObject.AddComponent<UnityEngine.UI.Image>();
+        img.color = new Color(1, 1, 1, 0.01f);
+        img.raycastTarget = true;
+
+        // Remonte dans la hiérarchie pour ne pas être bloqué par d'autres UI
+        transform.SetAsLastSibling();
     }
 }

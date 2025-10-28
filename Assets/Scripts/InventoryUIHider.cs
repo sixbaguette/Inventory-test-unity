@@ -1,11 +1,11 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 public class InventoryUIHider : MonoBehaviour
 {
     public static InventoryUIHider Instance;
 
-    [Header("Objets � d�sactiver en mode conteneur")]
+    [Header("Objets à masquer visuellement en mode conteneur")]
     public List<GameObject> objectsToHide = new List<GameObject>();
 
     private bool hidden = false;
@@ -22,8 +22,16 @@ public class InventoryUIHider : MonoBehaviour
 
         foreach (var obj in objectsToHide)
         {
-            if (obj != null)
-                obj.SetActive(false);
+            if (obj == null) continue;
+
+            // 🟡 On garde l’objet actif, mais on le rend invisible et non interactif
+            CanvasGroup cg = obj.GetComponent<CanvasGroup>();
+            if (cg == null)
+                cg = obj.AddComponent<CanvasGroup>();
+
+            cg.alpha = 0f;
+            cg.interactable = false;
+            cg.blocksRaycasts = false;
         }
     }
 
@@ -34,8 +42,15 @@ public class InventoryUIHider : MonoBehaviour
 
         foreach (var obj in objectsToHide)
         {
-            if (obj != null)
-                obj.SetActive(true);
+            if (obj == null) continue;
+
+            CanvasGroup cg = obj.GetComponent<CanvasGroup>();
+            if (cg != null)
+            {
+                cg.alpha = 1f;
+                cg.interactable = true;
+                cg.blocksRaycasts = true;
+            }
         }
     }
 }
