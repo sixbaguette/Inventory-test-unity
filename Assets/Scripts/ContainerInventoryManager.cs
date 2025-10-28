@@ -184,6 +184,9 @@ public class ContainerInventoryManager : MonoBehaviour
         ui.UpdateOutline();
         ui.EnableRaycastAfterDrop();
         ui.transform.SetAsLastSibling();
+        ui.DisableExtraCanvasIfInInventory();
+
+        StripLocalCanvas(ui); // 🧹 supprime les Canvas temporaires (drag)
 
         if (!items.Contains(ui)) items.Add(ui);
         return true;
@@ -229,5 +232,17 @@ public class ContainerInventoryManager : MonoBehaviour
 
         ui.occupiedSlots = null;
         ui.currentSlot = null;
+    }
+
+    // =======================================================
+    // 🔧 Supprime tout Canvas/GraphicRaycaster local sur un item
+    // =======================================================
+    private void StripLocalCanvas(Component root)
+    {
+        if (root == null) return;
+        var c = root.GetComponent<Canvas>();
+        if (c != null) Destroy(c);
+        var gr = root.GetComponent<UnityEngine.UI.GraphicRaycaster>();
+        if (gr != null) Destroy(gr);
     }
 }

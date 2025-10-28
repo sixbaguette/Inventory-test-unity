@@ -20,13 +20,32 @@ public class ContextMenuUI : MonoBehaviour
     private RectTransform panelRect;
     private bool isVisible = false;
 
+    private Canvas topOverlayCanvas;
+
     private void Awake()
     {
         Instance = this;
         panelRect = panel.GetComponent<RectTransform>();
         HideInstant();
 
-        // Lier les boutons à leurs actions
+        // 🔝 Assure un canvas tout en haut
+        var existing = GameObject.Find("TopOverlayCanvas");
+        if (existing != null) topOverlayCanvas = existing.GetComponent<Canvas>();
+        if (topOverlayCanvas == null)
+        {
+            var go = new GameObject("TopOverlayCanvas", typeof(Canvas), typeof(GraphicRaycaster));
+            topOverlayCanvas = go.GetComponent<Canvas>();
+            topOverlayCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            topOverlayCanvas.overrideSorting = true;
+            topOverlayCanvas.sortingOrder = 5000;   // bien au-dessus des items/grilles
+            DontDestroyOnLoad(go);
+        }
+
+        // 👇 Place ce ContextMenu sous ce canvas
+        transform.SetParent(topOverlayCanvas.transform, false);
+        transform.SetAsLastSibling();
+
+        // Listeners (inchangé)
         splitButton.onClick.AddListener(OnSplit);
         dropButton.onClick.AddListener(OnDrop);
         dropStackButton.onClick.AddListener(OnDropStack);
@@ -47,30 +66,47 @@ public class ContextMenuUI : MonoBehaviour
     public void Show(ItemUI itemUI, Vector2 pos)
     {
         if (itemUI == null) return;
+
+        // 🔝 Place le menu dans le canvas global overlay
+        if (InventoryManager.Instance != null && InventoryManager.Instance.overlayCanvas != null)
+        {
+            Canvas overlay = InventoryManager.Instance.overlayCanvas;
+            panel.transform.SetParent(overlay.transform, false);
+
+            // S'assure que le canvas overlay est bien au-dessus de tout
+            overlay.overrideSorting = true;
+            overlay.sortingOrder = 10000;
+        }
+        else
+        {
+            Debug.LogWarning("[ContextMenuUI] Aucun overlayCanvas trouvé, le menu risque d'être masqué !");
+        }
         currentItem = itemUI;
 
-        if (panel == null || panelRect == null || canvasGroup == null)
+        if (topOverlayCanvas == null)  // sécurité si Awake ne s’est pas exécuté
         {
-            Debug.LogError("[ContextMenuUI] Panel ou composants manquants !");
-            return;
+            topOverlayCanvas = GameObject.Find("TopOverlayCanvas")?.GetComponent<Canvas>();
+            if (topOverlayCanvas == null) return;
+            transform.SetParent(topOverlayCanvas.transform, false);
         }
 
-        // 🟢 Active le panneau
+        // 🔝 On passe tout en haut à chaque ouverture
+        transform.SetParent(topOverlayCanvas.transform, false);
+        transform.SetAsLastSibling();
+
         panel.SetActive(true);
         isVisible = true;
 
-        // 🧭 Positionne près du curseur
+        // Position + clamp (ton code)
         Vector2 adjustedPos = pos + new Vector2(15f, -15f);
         panelRect.position = adjustedPos;
-
-        // 🧱 Empêche de sortir de l’écran
         Vector2 size = panelRect.sizeDelta;
         Vector2 clampedPos = adjustedPos;
         clampedPos.x = Mathf.Clamp(clampedPos.x, size.x / 2, Screen.width - size.x / 2);
         clampedPos.y = Mathf.Clamp(clampedPos.y, size.y / 2, Screen.height - size.y / 2);
         panelRect.position = clampedPos;
 
-        // 🎞 Animation d’ouverture
+        // Fade in (ton code)
         canvasGroup.alpha = 0f;
         panelRect.localScale = Vector3.one * 0.8f;
         LeanTween.cancel(panel);
@@ -84,6 +120,14 @@ public class ContextMenuUI : MonoBehaviour
 
         canvasGroup.interactable = true;
         canvasGroup.blocksRaycasts = true;
+
+        // Sécurité : si le Canvas parent du panel n’a pas de GraphicRaycaster
+        var canvasParent = panel.GetComponentInParent<Canvas>();
+        if (canvasParent != null)
+        {
+            var gr = canvasParent.GetComponent<UnityEngine.UI.GraphicRaycaster>();
+            if (gr == null) canvasParent.gameObject.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+        }
 
         // 🎯 Setup des boutons (Drop / Split / Inspect / Équipé)
         dropButton.onClick.RemoveAllListeners();
@@ -174,6 +218,19 @@ public class ContextMenuUI : MonoBehaviour
 
             Hide();
         });
+        // 🔧 Patch provisoire : rend tous les CanvasGroup parents interactifs
+        Transform t = panel.transform;
+        while (t != null)
+        {
+            var cg = t.GetComponent<CanvasGroup>();
+            if (cg != null)
+            {
+                cg.interactable = true;
+                cg.blocksRaycasts = true;
+                cg.alpha = 1f;
+            }
+            t = t.parent;
+        }
     }
 
     public void Hide()

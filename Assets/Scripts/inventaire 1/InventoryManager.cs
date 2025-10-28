@@ -24,6 +24,13 @@ public class InventoryManager : MonoBehaviour
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
 
+        // 🧭 S’assure que le Canvas overlay peut recevoir les clics
+        if (overlayCanvas != null)
+        {
+            var gr = overlayCanvas.GetComponent<UnityEngine.UI.GraphicRaycaster>();
+            if (gr == null) overlayCanvas.gameObject.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+        }
+
         // S’assure que la grille est prête
         InitializeGrid();
     }
@@ -313,6 +320,8 @@ public class InventoryManager : MonoBehaviour
         itemUI.EnableRaycastAfterDrop();
         itemUI.transform.SetAsLastSibling();
         itemUI.EnsureCanvasRaycastable();
+        itemUI.DisableExtraCanvasIfInInventory();
+        StripLocalCanvas(itemUI); // 🧹 supprime les Canvas temporaires (drag)
 
         return true;
     }
@@ -563,5 +572,17 @@ public class InventoryManager : MonoBehaviour
         // Nettoie les refs d’emplacement
         ui.occupiedSlots = null;
         ui.currentSlot = null;
+    }
+
+    // =======================================================
+    // 🔧 Supprime tout Canvas/GraphicRaycaster local sur un item
+    // =======================================================
+    private void StripLocalCanvas(Component root)
+    {
+        if (root == null) return;
+        var c = root.GetComponent<Canvas>();
+        if (c != null) Destroy(c);
+        var gr = root.GetComponent<UnityEngine.UI.GraphicRaycaster>();
+        if (gr != null) Destroy(gr);
     }
 }

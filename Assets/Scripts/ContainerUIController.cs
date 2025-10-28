@@ -69,6 +69,22 @@ public class ContainerUIController : MonoBehaviour
         currentContainer = container;
         container.LoadInto(containerInv);
 
+        // 🔧 Supprime tout Canvas local des items instanciés dans le conteneur
+        foreach (Transform child in containerInv.itemsLayer)
+        {
+            var ui = child.GetComponent<ItemUI>();
+            if (ui != null)
+            {
+                var localCanvas = ui.GetComponent<Canvas>();
+                if (localCanvas != null) Destroy(localCanvas);
+
+                var gr = ui.GetComponent<UnityEngine.UI.GraphicRaycaster>();
+                if (gr != null) Destroy(gr);
+
+                ui.EnsureCanvasRaycastable(); // garde le raycast fonctionnel
+            }
+        }
+
         // 🔹 Déplace la grille joueur vers la gauche
         if (playerGridPanel != null && !isMoved)
         {

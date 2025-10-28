@@ -264,45 +264,92 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
 
         bool placed = false;
 
-        // 1) d’abord conteneur si ouvert
+        // === 1️⃣ Priorité : conteneur si ouvert ===
         if (openContainer != null && openContainer.slotParent != null)
         {
             if (TryPlaceInContainerByMath(openContainer, eventData.position))
             {
-                if (sourcePlayerInv != null) sourcePlayerInv.DetachWithoutDestroy(itemUI);
+                // Si la source était l'inventaire joueur → on le détache proprement
+                if (sourcePlayerInv != null)
+                {
+                    sourcePlayerInv.DetachWithoutDestroy(itemUI);
+                    sourcePlayerInv = null;
+                }
+
+                // Marque simplement la nouvelle source (pas besoin d'ajouter à une liste privée)
+                sourceContainerInv = openContainer;
+                sourcePlayerInv = null;
+
                 placed = true;
             }
         }
 
-        // 2) sinon joueur
+        // === 2️⃣ Sinon tente le joueur ===
         if (!placed && playerInv != null && playerInv.slotParent != null)
         {
             if (TryPlaceInPlayerByMath(playerInv, eventData.position))
             {
-                if (sourceContainerInv != null) sourceContainerInv.DetachWithoutDestroy(itemUI);
+                // Si la source était un conteneur → on le retire logiquement du container
+                if (sourceContainerInv != null)
+                {
+                    sourceContainerInv.DetachWithoutDestroy(itemUI);
+                    sourceContainerInv = null;
+                }
+
+                // 🧠 Important : ajoute l’item à la liste de l’inventaire du joueur
+                playerInv.AddToInventoryList(itemUI);
+                sourcePlayerInv = playerInv;
+
                 placed = true;
             }
         }
 
+        // === 3️⃣ Si pas placé nulle part → retour ===
         if (!placed)
             ReturnToLastValid();
 
-        ClearAllHighlights();
-
-        // 🧩 Réactive les raycasts sur les éléments graphiques
+        // === 4️⃣ Réactive les raycasts graphiques ===
         var graphics = GetComponentsInChildren<Graphic>(true);
         foreach (var g in graphics)
             g.raycastTarget = true;
 
+        // === 5️⃣ Restaure l'ordre du Canvas ===
         var topCanvas = overlayCanvas.GetComponent<Canvas>();
         if (topCanvas != null)
-        {
             topCanvas.overrideSorting = false;
-        }
 
-        // remet l’item au-dessus de sa couche d’items
+        // === 6️⃣ Sécurité visuelle / interaction ===
         itemUI.transform.SetAsLastSibling();
         itemUI.EnableRaycastAfterDrop();
+        itemUI.DisableExtraCanvasIfInInventory();
+
+        // === 7️⃣ Stack automatique entre inventaire et conteneur ===
+        TryMergeStacksCrossInventories(playerInv, openContainer, itemUI);
+    }
+
+    private void TryMergeStacksCrossInventories(InventoryManager playerInv, ContainerInventoryManager containerInv, ItemUI draggedItem)
+    {
+        if (draggedItem == null || draggedItem.itemData == null)
+            return;
+
+        // 🔸 Vérifie d’abord dans l’inventaire joueur
+        foreach (var item in playerInv.GetComponentsInChildren<ItemUI>(true))
+        {
+            if (item == draggedItem) continue;
+            if (playerInv.TryMergeStacks(draggedItem, item))
+                return; // fusion réussie
+        }
+
+        // 🔸 Puis dans le conteneur s’il est ouvert
+        if (containerInv != null)
+        {
+            foreach (var item in containerInv.GetComponentsInChildren<ItemUI>(true))
+            {
+                if (item == draggedItem) continue;
+                if (playerInv.TryMergeStacks(draggedItem, item))
+                    return;
+            }
+        }
     }
 
     private bool TryPlaceInPlayerByMath(InventoryManager inv, Vector2 screenPos)

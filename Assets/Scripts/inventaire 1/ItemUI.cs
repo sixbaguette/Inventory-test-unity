@@ -203,11 +203,14 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         if (outline != null)
         {
             var rt = outline.rectTransform;
-            rt.anchorMin = new Vector2(0.5f, 0.5f);
-            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
             rt.pivot = new Vector2(0.5f, 0.5f);
             rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = Vector2.zero;
             rt.localEulerAngles = Vector3.zero;
+
+            outline.raycastTarget = false; // ✅ ici aussi
         }
     }
 
@@ -255,29 +258,29 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     {
         if (outline == null || itemData == null) return;
 
-        // On part de la taille réelle de l’ItemUI (celle déjà arrondie par UpdateSize)
-        Vector2 itemSize = rectTransform.sizeDelta;
-
-        // ⚙️ Nettoyage des arrondis Unity
-        itemSize.x = Mathf.Round(itemSize.x);
-        itemSize.y = Mathf.Round(itemSize.y);
-
         RectTransform ort = outline.rectTransform;
 
-        // ✅ ancrage cohérent avec la grille (haut-gauche)
-        ort.anchorMin = new Vector2(0, 1);
-        ort.anchorMax = new Vector2(0, 1);
-        ort.pivot = new Vector2(0, 1);
-
-        // ✅ toujours parfaitement superposé à l’item
+        // 🧩 Étire l'outline sur tout le parent ItemUI
+        ort.anchorMin = Vector2.zero;
+        ort.anchorMax = Vector2.one;
+        ort.pivot = new Vector2(0.5f, 0.5f);
         ort.anchoredPosition = Vector2.zero;
+        ort.localEulerAngles = Vector3.zero;
 
-        // ✅ marge fixe de 2px (modifie si tu veux exact)
-        float margin = 2f;
-        ort.sizeDelta = itemSize + new Vector2(margin, margin);
+        // 🟡 Bordure uniforme sur les 4 côtés
+        float border = 2f;
+        ort.offsetMin = new Vector2(-border, -border);
+        ort.offsetMax = new Vector2(border, border);
 
-        if (outline != null)
-            outline.rectTransform.localEulerAngles = Vector3.zero;
+        // ✨ Correction fine du subpixel
+        var rt = rectTransform;
+        rt.anchorMin = new Vector2(0, 1);
+        rt.anchorMax = new Vector2(0, 1);
+        rt.pivot = new Vector2(0, 1);
+        rt.anchoredPosition = new Vector2(Mathf.Round(rt.anchoredPosition.x), Mathf.Round(rt.anchoredPosition.y));
+
+        // 🚫 Empêche l’outline de bloquer les clics
+        outline.raycastTarget = false;
     }
 
     public void ResetVisualLayout()
@@ -302,12 +305,11 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         if (outline != null)
         {
             var ort = outline.rectTransform;
-            ort.anchorMin = new Vector2(0.5f, 0.5f);
-            ort.anchorMax = new Vector2(0.5f, 0.5f);
-            ort.pivot = new Vector2(0.5f, 0.5f);
+            // NE PAS réécrire anchorMin/Max/pivot ici !
             ort.anchoredPosition = Vector2.zero;
             ort.localEulerAngles = Vector3.zero;
         }
+
         EnsureRaycastable();
     }
 
@@ -528,32 +530,39 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
     public void EnsureCanvasRaycastable()
     {
-        // ✅ S'assure qu'il y a un Canvas local
-        var canvas = GetComponentInParent<Canvas>();
-        if (canvas == null)
-        {
-            canvas = gameObject.AddComponent<Canvas>();
-            canvas.overrideSorting = true;
-            canvas.sortingOrder = 50; // au-dessus de tout
-            Debug.Log("[ItemUI] Canvas ajouté sur " + name);
-        }
-
-        // ✅ Ajoute un GraphicRaycaster si manquant
-        if (canvas.GetComponent<UnityEngine.UI.GraphicRaycaster>() == null)
-            canvas.gameObject.AddComponent<UnityEngine.UI.GraphicRaycaster>();
-
-        // ✅ Réactive le CanvasGroup
+        // ⚙️ On s’assure juste que l’item est interactif dans son Canvas parent
         var cg = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
         cg.blocksRaycasts = true;
         cg.interactable = true;
         cg.alpha = 1f;
 
-        // ✅ Image hitbox minimale pour capter les clics
+        // ⚙️ Hitbox cliquable (image quasi invisible)
         var img = GetComponent<UnityEngine.UI.Image>() ?? gameObject.AddComponent<UnityEngine.UI.Image>();
-        img.color = new Color(1, 1, 1, 0.01f);
+        if (img.color.a < 0.01f)
+            img.color = new Color(1, 1, 1, 0.01f);
         img.raycastTarget = true;
 
-        // Remonte dans la hiérarchie pour ne pas être bloqué par d'autres UI
-        transform.SetAsLastSibling();
+        // ⚙️ Supprime tout Canvas local s’il existe (sécurité supplémentaire)
+        var c = GetComponent<Canvas>();
+        if (c != null) Destroy(c);
+
+        var gr = GetComponent<UnityEngine.UI.GraphicRaycaster>();
+        if (gr != null) Destroy(gr);
+    }
+
+    public void DisableExtraCanvasIfInInventory()
+    {
+        // ❌ Si l’item est dans une grille (joueur ou conteneur), pas de Canvas local
+        var parentInv = GetComponentInParent<InventoryManager>();
+        var parentCont = GetComponentInParent<ContainerInventoryManager>();
+
+        if (parentInv != null || parentCont != null)
+        {
+            var localCanvas = GetComponent<Canvas>();
+            if (localCanvas != null) Destroy(localCanvas);
+
+            var gr = GetComponent<UnityEngine.UI.GraphicRaycaster>();
+            if (gr != null) Destroy(gr);
+        }
     }
 }

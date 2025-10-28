@@ -61,28 +61,32 @@ public class Container : MonoBehaviour
         inv.height = height;
         inv.InitializeGrid();
 
-        // Si c'est la première ouverture → placer les items de départ
+        // 🔹 Si le coffre n’a jamais été ouvert
         if (storedItems.Count == 0 && startingItems != null && startingItems.Length > 0)
         {
             foreach (var item in startingItems)
             {
-                if (item == null) continue;
-
-                // 🔍 Trouve une position libre pour cet item
-                Vector2Int? freePos = inv.FindFreeSpaceFor(item);
-                if (freePos.HasValue)
+                if (item != null)
                 {
-                    inv.AddItemAt(item, freePos.Value.x, freePos.Value.y);
-                }
-                else
-                {
-                    Debug.LogWarning($"[Container] Plus de place pour {item.name} dans {containerName}");
+                    inv.AddItem(item);
+                    storedItems.Add(new StoredItem
+                    {
+                        data = item,
+                        x = 0,
+                        y = 0,
+                        width = item.width,
+                        height = item.height,
+                        stack = 1
+                    });
                 }
             }
+
+            // 🧹 Vide la liste de départ pour ne pas dupliquer
+            startingItems = new ItemData[0];
         }
         else
         {
-            // Sinon → on recharge les items sauvegardés
+            // 🟢 Sinon recharge depuis la sauvegarde
             foreach (var s in storedItems)
             {
                 if (s == null || s.data == null) continue;
@@ -92,9 +96,6 @@ public class Container : MonoBehaviour
                 ui.Setup(s.data);
                 ui.currentStack = Mathf.Max(1, s.stack);
                 ui.UpdateStackText();
-
-                ui.itemData.width = s.width;
-                ui.itemData.height = s.height;
 
                 inv.PlaceItem(ui, s.x, s.y);
             }
