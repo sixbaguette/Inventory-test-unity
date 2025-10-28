@@ -1,6 +1,8 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
+using static UnityEngine.UI.Image;
 
 public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
@@ -22,6 +24,14 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
     // 🧩 Nouveaux champs pour la gestion multi-inventaires
     public InventoryManager sourcePlayerInv;
     public ContainerInventoryManager sourceContainerInv;
+
+    private InventoryManager originPlayerInv;
+    private ContainerInventoryManager originContainerInv;
+    private int originX = -1, originY = -1;
+    private Vector2 originAnchoredPos;
+    private Transform originParent;
+
+    private enum GridType { None, Player, Container }
 
     private void Awake()
     {
@@ -64,29 +74,71 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
 
     public void OnBeginDrag(PointerEventData eventData)
     {
-        if (overlayCanvas == null || itemUI == null) return;
+        if (itemUI == null) return;
+
+        // 1️⃣ Sécurise overlayCanvas
+        if (overlayCanvas == null)
+            overlayCanvas = InventoryManager.Instance != null ? InventoryManager.Instance.overlayCanvas : null;
+
+        if (overlayCanvas == null)
+        {
+            foreach (var c in GameObject.FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+            {
+                if (c.isActiveAndEnabled && c.renderMode == RenderMode.ScreenSpaceOverlay)
+                {
+                    overlayCanvas = c;
+                    break;
+                }
+            }
+        }
+
+        if (overlayCanvas == null)
+        {
+            Debug.LogError("[ItemDrag] Aucun overlayCanvas trouvé ! Drag annulé.");
+            return;
+        }
 
         isDragging = true;
 
-        // 🧠 Détermine depuis quel inventaire vient l'item
+        // 2️⃣ Détermine la grille source (joueur ou conteneur)
         sourcePlayerInv = GetComponentInParent<InventoryManager>();
         sourceContainerInv = GetComponentInParent<ContainerInventoryManager>();
 
-        // détache d’un slot d’équipement si besoin
-        var equipSlot = GetComponentInParent<EquipementSlot>();
-        if (equipSlot != null) equipSlot.ForceClear(itemUI);
+        // 🔹 On sauvegarde aussi les vraies origines pour le retour
+        originPlayerInv = sourcePlayerInv;
+        originContainerInv = sourceContainerInv;
 
+        // 3️⃣ Libère un éventuel slot d’équipement
+        var equipSlot = GetComponentInParent<EquipementSlot>();
+        if (equipSlot != null)
+            equipSlot.ForceClear(itemUI);
+
+        // 4️⃣ Place l’item sous l’overlay (devant tout)
         originalParent = transform.parent;
-        transform.SetParent(overlayCanvas.transform, true);
-        // s'assure que l'item ne bloque pas les raycasts pendant le drag
-        if (canvasGroup == null)
-            canvasGroup = GetComponent<CanvasGroup>();
-        canvasGroup.blocksRaycasts = false;
+        originParent = transform.parent; // 👈 pour ReturnToLastValid()
+        transform.SetParent(overlayCanvas.transform, false);
+
+        var topCanvas = overlayCanvas.GetComponent<Canvas>();
+        if (topCanvas != null)
+        {
+            topCanvas.overrideSorting = true;
+            topCanvas.sortingOrder = 999;
+        }
         transform.SetAsLastSibling();
 
-        if (canvasGroup == null) canvasGroup = GetComponent<CanvasGroup>();
-        canvasGroup.blocksRaycasts = false;
+        // 5️⃣ Rend l’item non bloquant pendant le drag
+        if (canvasGroup == null)
+            canvasGroup = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
 
+        canvasGroup.blocksRaycasts = false;
+        canvasGroup.interactable = true;
+
+        // Tous les enfants graphiques ne bloquent pas non plus
+        var graphics = GetComponentsInChildren<Graphic>(true);
+        foreach (var g in graphics)
+            g.raycastTarget = false;
+
+        // 6️⃣ Calcul de l’offset curseur
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
             overlayCanvas.transform as RectTransform,
             eventData.position,
@@ -94,28 +146,30 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
             out startMousePos
         );
 
-        // Sauvegarde la position et la taille actuelles avant de déplacer
+        startItemPos = rectTransform.anchoredPosition;
+        dragOffset = startItemPos - startMousePos;
+
+        // 7️⃣ Sauvegarde des coordonnées et position d’origine
         if (itemUI.currentSlot != null)
         {
             lastValidPos = new Vector2Int(itemUI.currentSlot.x, itemUI.currentSlot.y);
             lastValidSize = new Vector2Int(itemUI.itemData.width, itemUI.itemData.height);
-        }
 
-        startItemPos = rectTransform.anchoredPosition;
-        dragOffset = startItemPos - startMousePos;
-
-        // sauve la dernière case valide
-        if (itemUI != null && itemUI.currentSlot != null)
-        {
             preDragX = itemUI.currentSlot.x;
             preDragY = itemUI.currentSlot.y;
+
+            originX = preDragX;
+            originY = preDragY;
         }
         else
         {
             preDragX = preDragY = -1;
+            originX = originY = -1;
         }
 
-        // Recalage visuel
+        originAnchoredPos = itemUI.rectTransform.anchoredPosition; // 👈 position exacte avant drag
+
+        // 8️⃣ Mise à jour visuelle
         itemUI.UpdateSize();
         itemUI.UpdateOutline();
     }
@@ -125,101 +179,73 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
         if (overlayCanvas == null || rectTransform == null || itemUI == null || itemUI.itemData == null)
             return;
 
-        // 1️⃣ Suivre la souris dans l’overlay
-        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+        // 1️⃣ Suivre la souris
+        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
             overlayCanvas.transform as RectTransform,
             eventData.position,
             eventData.pressEventCamera,
-            out var localMouse))
-            return;
-
-        rectTransform.anchoredPosition = localMouse + dragOffset;
-
-        // 2️⃣ Si on survole un slot d’équipement → pas de highlight de grille
-        if (eventData.pointerCurrentRaycast.gameObject != null)
+            out Vector2 localMouse))
         {
-            var overEquip = eventData.pointerCurrentRaycast.gameObject.GetComponentInParent<EquipementSlot>();
-            if (overEquip != null)
-            {
-                var clearInv = InventoryManager.Instance;
-                if (clearInv?.slots != null)
-                    foreach (var s in clearInv.slots) if (s != null) s.ResetHighlight();
-                return;
-            }
+            rectTransform.anchoredPosition = localMouse + dragOffset;
         }
 
-        // 🧭 Vérifie si la souris est sur la grille du conteneur actif
-        var contUI = ContainerUIController.Instance;
-        var contInv = contUI != null ? contUI.GetActiveContainerInventory() : null;
-
-        if (contInv != null && contInv.slotParent != null)
-        {
-            var contRect = contInv.slotParent as RectTransform;
-            if (RectTransformUtility.RectangleContainsScreenPoint(
-                contRect, eventData.position, eventData.pressEventCamera))
-            {
-                // reset les highlights du joueur
-                var playerInv = InventoryManager.Instance;
-                if (playerInv?.slots != null)
-                    foreach (var s in playerInv.slots) if (s != null) s.ResetHighlight();
-
-                // 🎯 survol du conteneur → highlight dessus
-                HighlightContainerGrid(contInv, eventData);
-                return;
-            }
-        }
-
-        // 🧭 Sinon, highlight sur l’inventaire du joueur
+        // 2️⃣ Récupère les deux grilles
         var inv = InventoryManager.Instance;
-        if (inv == null || inv.slots == null || inv.slotParent == null)
-            return;
+        var cont = ContainerUIController.Instance?.GetActiveContainerInventory();
+        if (inv == null || inv.slots == null) return;
 
-        foreach (var s in inv.slots)
-            if (s != null) s.ResetHighlight();
+        // 3️⃣ Reset tous les highlights
+        ClearAllHighlights();
 
-        // Canvas racine de la grille pour conversion World->Screen
-        var rootCanvas = inv.slotParent.GetComponentInParent<Canvas>();
-        Camera cam = rootCanvas != null ? rootCanvas.worldCamera : null;
-
-        // Trouver le slot dont le centre écran est le plus proche du pointeur
-        Vector2 pointerScreen = eventData.position;
+        // 4️⃣ Détermine le slot le plus proche de la souris
         float bestDist = float.MaxValue;
+        bool closestIsPlayer = false;
         int bestX = -1, bestY = -1;
 
-        for (int y = 0; y < inv.height; y++)
+        // Fonction locale pour tester un inventaire
+        void TestGrid(Slot[,] grid, int width, int height, Transform slotParent, ref float bestDistRef, ref bool isPlayerRef, ref int bx, ref int by, bool player)
         {
-            for (int x = 0; x < inv.width; x++)
-            {
-                var rt = inv.slots[x, y].GetComponent<RectTransform>();
-                Vector3 centerWorld = rt.TransformPoint(rt.rect.center);
-                Vector2 centerScreen = RectTransformUtility.WorldToScreenPoint(cam, centerWorld);
+            if (grid == null || slotParent == null) return;
+            var rootCanvas = slotParent.GetComponentInParent<Canvas>();
+            Camera cam = rootCanvas != null ? rootCanvas.worldCamera : null;
+            Vector2 pointerScreen = eventData.position;
 
-                float d = Vector2.Distance(pointerScreen, centerScreen);
-                if (d < bestDist)
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
                 {
-                    bestDist = d;
-                    bestX = x;
-                    bestY = y;
+                    var rt = grid[x, y].GetComponent<RectTransform>();
+                    Vector3 worldCenter = rt.TransformPoint(rt.rect.center);
+                    Vector2 screenCenter = RectTransformUtility.WorldToScreenPoint(cam, worldCenter);
+                    float dist = Vector2.Distance(pointerScreen, screenCenter);
+                    if (dist < bestDistRef)
+                    {
+                        bestDistRef = dist;
+                        isPlayerRef = player;
+                        bx = x;
+                        by = y;
+                    }
                 }
             }
         }
 
-        if (bestX < 0 || bestY < 0) return;
+        // Vérifie les deux grilles
+        TestGrid(inv.slots, inv.width, inv.height, inv.slotParent, ref bestDist, ref closestIsPlayer, ref bestX, ref bestY, true);
+        if (cont != null)
+            TestGrid(cont.slots, cont.width, cont.height, cont.slotParent, ref bestDist, ref closestIsPlayer, ref bestX, ref bestY, false);
 
-        int startX = Mathf.Clamp(bestX, 0, inv.width - itemUI.itemData.width);
-        int startY = Mathf.Clamp(bestY, 0, inv.height - itemUI.itemData.height);
+        // 5️⃣ Si aucun slot détecté → pas de highlight
+        if (bestX < 0 || bestY < 0)
+            return;
 
-        bool canPlace = inv.CanPlaceItem(startX, startY, itemUI.itemData, itemUI);
-
-        for (int dx = 0; dx < itemUI.itemData.width; dx++)
+        // 6️⃣ Applique le highlight à la bonne grille
+        if (closestIsPlayer)
         {
-            for (int dy = 0; dy < itemUI.itemData.height; dy++)
-            {
-                int cx = startX + dx;
-                int cy = startY + dy;
-                if (cx < 0 || cy < 0 || cx >= inv.width || cy >= inv.height) continue;
-                inv.slots[cx, cy].Highlight(canPlace ? Color.green : Color.red);
-            }
+            DoHighlightForPlayer(inv, eventData.position);
+        }
+        else if (cont != null)
+        {
+            DoHighlightForContainer(cont, eventData.position);
         }
     }
 
@@ -228,64 +254,55 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
         isDragging = false;
 
         if (canvasGroup == null)
-            canvasGroup = GetComponent<CanvasGroup>();
-
-        // Réactive les raycasts pour pouvoir recliquer
+            canvasGroup = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
         canvasGroup.blocksRaycasts = true;
+        canvasGroup.interactable = true;
+        canvasGroup.alpha = 1f;
 
-        // --- Récupère les références principales
         var playerInv = InventoryManager.Instance;
-        var openUI = ContainerUIController.Instance;
-        var openContainer = openUI != null ? openUI.GetActiveContainerInventory() : null;
+        var openContainer = ContainerUIController.Instance?.GetActiveContainerInventory();
 
         bool placed = false;
 
-        // 1️⃣ Si un conteneur est ouvert → essaie d’y placer l’objet
+        // 1) d’abord conteneur si ouvert
         if (openContainer != null && openContainer.slotParent != null)
         {
             if (TryPlaceInContainerByMath(openContainer, eventData.position))
             {
-                // Si l’item venait du joueur → on le détache proprement sans le détruire
-                if (sourcePlayerInv != null)
-                    sourcePlayerInv.DetachWithoutDestroy(itemUI);
-
+                if (sourcePlayerInv != null) sourcePlayerInv.DetachWithoutDestroy(itemUI);
                 placed = true;
             }
         }
 
-        // 2️⃣ Sinon, essaie la grille du joueur
+        // 2) sinon joueur
         if (!placed && playerInv != null && playerInv.slotParent != null)
         {
             if (TryPlaceInPlayerByMath(playerInv, eventData.position))
             {
-                // Si l’item venait du conteneur → on le détache proprement sans le détruire
-                if (sourceContainerInv != null)
-                    sourceContainerInv.DetachWithoutDestroy(itemUI);
-
+                if (sourceContainerInv != null) sourceContainerInv.DetachWithoutDestroy(itemUI);
                 placed = true;
             }
         }
 
-        // 3️⃣ Si rien n’a fonctionné → retour à la dernière case valide
         if (!placed)
             ReturnToLastValid();
 
-        // 🧹 Reset des highlights sur les deux grilles
         ClearAllHighlights();
 
-        // ✅ Réactive le raycast sur l'ItemUI après le drop
-        if (itemUI != null)
+        // 🧩 Réactive les raycasts sur les éléments graphiques
+        var graphics = GetComponentsInChildren<Graphic>(true);
+        foreach (var g in graphics)
+            g.raycastTarget = true;
+
+        var topCanvas = overlayCanvas.GetComponent<Canvas>();
+        if (topCanvas != null)
         {
-            itemUI.EnableRaycastAfterDrop();
-            itemUI.transform.SetAsLastSibling(); // <- très important
-            var cg = itemUI.GetComponent<CanvasGroup>();
-            if (cg != null)
-            {
-                cg.blocksRaycasts = true;
-                cg.interactable = true;
-                cg.alpha = 1f;
-            }
+            topCanvas.overrideSorting = false;
         }
+
+        // remet l’item au-dessus de sa couche d’items
+        itemUI.transform.SetAsLastSibling();
+        itemUI.EnableRaycastAfterDrop();
     }
 
     private bool TryPlaceInPlayerByMath(InventoryManager inv, Vector2 screenPos)
@@ -421,13 +438,42 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
 
     private void ReturnToLastValid()
     {
+        // 1) Essaye la vraie grille d’origine + coords sauvegardées
+        if (originPlayerInv != null && originX >= 0 && originY >= 0)
+        {
+            if (originPlayerInv.PlaceItem(itemUI, originX, originY))
+                return;
+        }
+        if (originContainerInv != null && originX >= 0 && originY >= 0)
+        {
+            if (originContainerInv.PlaceItem(itemUI, originX, originY))
+                return;
+        }
+
+        // 2) Sinon, si l’item a un currentSlot valide, repose-le là
         if (itemUI.currentSlot != null)
         {
-            if (sourcePlayerInv != null)
-                sourcePlayerInv.PlaceItem(itemUI, itemUI.currentSlot.x, itemUI.currentSlot.y);
-            else if (sourceContainerInv != null)
-                sourceContainerInv.PlaceItem(itemUI, itemUI.currentSlot.x, itemUI.currentSlot.y);
+            var s = itemUI.currentSlot;
+            if (originPlayerInv != null && ReferenceEquals(s, originPlayerInv.slots[s.x, s.y]))
+            {
+                if (originPlayerInv.PlaceItem(itemUI, s.x, s.y)) return;
+            }
+            if (originContainerInv != null && ReferenceEquals(s, originContainerInv.slots[s.x, s.y]))
+            {
+                if (originContainerInv.PlaceItem(itemUI, s.x, s.y)) return;
+            }
         }
+
+        // 3) Fallback total : reparent à son parent d’avant le drag et remets la position visuelle
+        if (originParent != null)
+            itemUI.transform.SetParent(originParent, false);
+
+        itemUI.rectTransform.anchoredPosition = originAnchoredPos;
+
+        // Et garantit qu’on peut re-cliquer
+        var cg = itemUI.GetComponent<CanvasGroup>() ?? itemUI.gameObject.AddComponent<CanvasGroup>();
+        cg.blocksRaycasts = true; cg.interactable = true; cg.alpha = 1f;
+        itemUI.EnableRaycastAfterDrop();
     }
 
     // 🧩 appelée par le conteneur après placement
@@ -437,73 +483,102 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
         sourceContainerInv = cont;
     }
 
-    private void HighlightContainerGrid(ContainerInventoryManager cont, PointerEventData eventData)
+    private void ClearAllHighlights()
     {
-        var grid = cont.slotParent.GetComponent<UnityEngine.UI.GridLayoutGroup>();
-        if (grid == null) return;
+        var inv = InventoryManager.Instance;
+        if (inv?.slots != null) foreach (var s in inv.slots) s?.ResetHighlight();
 
-        RectTransform panel = cont.slotParent as RectTransform;
-        if (panel == null) return;
+        var cont = ContainerUIController.Instance?.GetActiveContainerInventory();
+        if (cont?.slots != null) foreach (var s in cont.slots) s?.ResetHighlight();
+    }
+
+    // ======== calc + reset + paint highlight ========
+    private void DoHighlightForPlayer(InventoryManager inv, Vector2 screenPos)
+    {
+        if (inv == null || inv.slots == null || inv.slotParent == null) return;
+
+        foreach (var s in inv.slots) if (s != null) s.ResetHighlight();
+
+        var grid = inv.slotParent.GetComponent<UnityEngine.UI.GridLayoutGroup>();
+        var panel = inv.slotParent as RectTransform;
+        if (grid == null || panel == null) return;
 
         Vector2 local;
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            panel,
-            eventData.position,
-            eventData.pressEventCamera,
-            out local);
+        // 🧠 On récupère automatiquement la bonne caméra du canvas parent
+        var rootCanvas = panel.GetComponentInParent<Canvas>();
+        Camera cam = rootCanvas && rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay ? rootCanvas.worldCamera : null;
+
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(panel, screenPos, cam, out local)) return;
 
         Vector2 size = panel.rect.size;
         float xFromLeft = local.x + (size.x * panel.pivot.x);
         float yFromTop = (size.y * (1f - panel.pivot.y)) - local.y;
 
-        float cellW = grid.cellSize.x;
-        float cellH = grid.cellSize.y;
-        float spacingX = grid.spacing.x;
-        float spacingY = grid.spacing.y;
-        float padL = grid.padding.left;
-        float padT = grid.padding.top;
+        float cellW = grid.cellSize.x, cellH = grid.cellSize.y;
+        float spX = grid.spacing.x, spY = grid.spacing.y;
+        float padL = grid.padding.left, padT = grid.padding.top;
 
-        float px = xFromLeft - padL;
-        float py = yFromTop - padT;
+        float px = xFromLeft - padL, py = yFromTop - padT;
         if (px < 0f || py < 0f) return;
 
-        int cellX = Mathf.FloorToInt(px / (cellW + spacingX));
-        int cellY = Mathf.FloorToInt(py / (cellH + spacingY));
+        int cellX = Mathf.FloorToInt(px / (cellW + spX));
+        int cellY = Mathf.FloorToInt(py / (cellH + spY));
+
+        int startX = Mathf.Clamp(cellX, 0, inv.width - itemUI.itemData.width);
+        int startY = Mathf.Clamp(cellY, 0, inv.height - itemUI.itemData.height);
+
+        bool canPlace = inv.CanPlaceItem(startX, startY, itemUI.itemData, itemUI);
+
+        for (int dx = 0; dx < itemUI.itemData.width; dx++)
+            for (int dy = 0; dy < itemUI.itemData.height; dy++)
+            {
+                int cx = startX + dx, cy = startY + dy;
+                if (cx < 0 || cy < 0 || cx >= inv.width || cy >= inv.height) continue;
+                inv.slots[cx, cy].Highlight(canPlace ? Color.green : Color.red);
+            }
+    }
+
+    private void DoHighlightForContainer(ContainerInventoryManager cont, Vector2 screenPos)
+    {
+        if (cont == null || cont.slots == null || cont.slotParent == null) return;
+
+        foreach (var s in cont.slots) if (s != null) s.ResetHighlight();
+
+        var grid = cont.slotParent.GetComponent<UnityEngine.UI.GridLayoutGroup>();
+        var panel = cont.slotParent as RectTransform;
+        if (grid == null || panel == null) return;
+
+        Vector2 local;
+        var rootCanvas = panel.GetComponentInParent<Canvas>();
+        Camera cam = rootCanvas && rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay ? rootCanvas.worldCamera : null;
+
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(panel, screenPos, cam, out local)) return;
+
+        Vector2 size = panel.rect.size;
+        float xFromLeft = local.x + (size.x * panel.pivot.x);
+        float yFromTop = (size.y * (1f - panel.pivot.y)) - local.y;
+
+        float cellW = grid.cellSize.x, cellH = grid.cellSize.y;
+        float spX = grid.spacing.x, spY = grid.spacing.y;
+        float padL = grid.padding.left, padT = grid.padding.top;
+
+        float px = xFromLeft - padL, py = yFromTop - padT;
+        if (px < 0f || py < 0f) return;
+
+        int cellX = Mathf.FloorToInt(px / (cellW + spX));
+        int cellY = Mathf.FloorToInt(py / (cellH + spY));
 
         int startX = Mathf.Clamp(cellX, 0, cont.width - itemUI.itemData.width);
         int startY = Mathf.Clamp(cellY, 0, cont.height - itemUI.itemData.height);
 
-        bool canPlace = cont.CanPlaceItem(startX, startY, itemUI.itemData);
-
-        foreach (var s in cont.slots)
-            if (s != null) s.ResetHighlight();
+        bool canPlace = cont.CanPlaceItem(startX, startY, itemUI.itemData, itemUI);
 
         for (int dx = 0; dx < itemUI.itemData.width; dx++)
-        {
             for (int dy = 0; dy < itemUI.itemData.height; dy++)
             {
-                int cx = startX + dx;
-                int cy = startY + dy;
+                int cx = startX + dx, cy = startY + dy;
                 if (cx < 0 || cy < 0 || cx >= cont.width || cy >= cont.height) continue;
                 cont.slots[cx, cy].Highlight(canPlace ? Color.green : Color.red);
             }
-        }
-    }
-
-    private void ClearAllHighlights()
-    {
-        var inv = InventoryManager.Instance;
-        if (inv?.slots != null)
-        {
-            foreach (var s in inv.slots)
-                s?.ResetHighlight();
-        }
-
-        var cont = ContainerUIController.Instance?.GetActiveContainerInventory();
-        if (cont?.slots != null)
-        {
-            foreach (var s in cont.slots)
-                s?.ResetHighlight();
-        }
     }
 }

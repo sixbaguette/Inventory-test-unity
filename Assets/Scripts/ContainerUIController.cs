@@ -67,8 +67,7 @@ public class ContainerUIController : MonoBehaviour
         canvasGroup.blocksRaycasts = false; // ✅ ne bloque pas les raycasts sur l'inventaire joueur
 
         currentContainer = container;
-        containerInv.InitializeGrid();
-        container.InitializeContents(containerInv);
+        container.LoadInto(containerInv);
 
         // 🔹 Déplace la grille joueur vers la gauche
         if (playerGridPanel != null && !isMoved)
@@ -110,6 +109,7 @@ public class ContainerUIController : MonoBehaviour
         {
             LeanTween.cancel(playerGridPanel);
             LeanTween.move(playerGridPanel, originalPos, moveSpeed).setEaseOutCubic();
+
             // 🔵 Replace la couche d'items du joueur à sa position d'origine
             if (InventoryManager.Instance != null && InventoryManager.Instance.itemsLayer != null)
             {
@@ -119,6 +119,27 @@ public class ContainerUIController : MonoBehaviour
             isMoved = false;
         }
 
+        // 🧩 Sauvegarde le contenu actuel du conteneur dans sa mémoire
+        if (currentContainer != null)
+            currentContainer.SaveFrom(containerInv);
+
+        // 🧹 Nettoie toutes les instances d’items visuelles de la grille
+        if (containerInv != null && containerInv.itemsLayer != null)
+        {
+            for (int i = containerInv.itemsLayer.childCount - 1; i >= 0; i--)
+            {
+                GameObject.Destroy(containerInv.itemsLayer.GetChild(i).gameObject);
+            }
+        }
+
+        // 🧽 Vide tous les slots (plus aucun item assigné)
+        if (containerInv != null && containerInv.slots != null)
+        {
+            foreach (var s in containerInv.slots)
+                if (s != null) s.ClearItem();
+        }
+
+        // 🔹 Termine la fermeture logique
         if (currentContainer != null)
             currentContainer.OnUIClosed();
 
@@ -126,7 +147,10 @@ public class ContainerUIController : MonoBehaviour
 
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
+
+        Debug.Log("[ContainerUI] Conteneur fermé, items détruits et grille réinitialisée.");
     }
+
 
     public ContainerInventoryManager GetActiveContainerInventory()
     {
