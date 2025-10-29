@@ -5629,9 +5629,12 @@ MonoBehaviour:
   width: 6
   height: 5
   startingItems:
-  - {fileID: 11400000, guid: 527d161451b8faf4ab36e345422198d5, type: 2}
-  - {fileID: 11400000, guid: 3973b4889641bdc45bf3b946cfd77e92, type: 2}
-  - {fileID: 11400000, guid: bdc136c0f78b10a43b37d8b222e32cf4, type: 2}
+  - itemData: {fileID: 11400000, guid: 527d161451b8faf4ab36e345422198d5, type: 2}
+    stackCount: 1
+  - itemData: {fileID: 11400000, guid: bee327b36c45fac4eaef0a21debed158, type: 2}
+    stackCount: 30
+  - itemData: {fileID: 11400000, guid: bdc136c0f78b10a43b37d8b222e32cf4, type: 2}
+    stackCount: 2
   storedItems: []
 --- !u!65 &797301640
 BoxCollider:
@@ -10719,7 +10722,8 @@ MonoBehaviour:
   width: 6
   height: 8
   startingItems:
-  - {fileID: 11400000, guid: e00d9f48af5dbaf4fb7f0415c3c4fb0d, type: 2}
+  - itemData: {fileID: 11400000, guid: e00d9f48af5dbaf4fb7f0415c3c4fb0d, type: 2}
+    stackCount: 1
   storedItems: []
 --- !u!65 &1380837948
 BoxCollider:

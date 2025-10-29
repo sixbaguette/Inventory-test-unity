@@ -12,7 +12,7 @@ public class ContainerInventoryManager : MonoBehaviour
     public RectTransform itemsLayer;
 
     [HideInInspector] public Slot[,] slots;
-    private readonly List<ItemUI> items = new();
+    public readonly List<ItemUI> items = new();
 
     public void InitializeGrid()
     {
@@ -265,5 +265,88 @@ public class ContainerInventoryManager : MonoBehaviour
         if (list == null) return;
 
         if (!list.Contains(ui)) list.Add(ui);
+    }
+
+    // =====================================
+    // 🔹 FONCTIONS UTILISÉES PAR LE SHIFT+CLIC
+    // =====================================
+
+    public bool TryAutoPlace(ItemUI item)
+    {
+        if (item == null || item.itemData == null) return false;
+
+        // 🟢 1) Essai orientation actuelle
+        if (FindFreeSpaceFor(item.itemData) is Vector2Int pos)
+        {
+            item.UpdateSize();
+            item.UpdateOutline();
+            item.ResetVisualLayout();
+            return PlaceItem(item, pos.x, pos.y);
+        }
+
+        // 🟡 2) Essai orientation pivotée
+        int oldW = item.itemData.width;
+        int oldH = item.itemData.height;
+
+        item.itemData.width = oldH;
+        item.itemData.height = oldW;
+
+        if (FindFreeSpaceFor(item.itemData) is Vector2Int pos2)
+        {
+            item.UpdateSize();
+            item.UpdateOutline();
+            item.ResetVisualLayout();
+            return PlaceItem(item, pos2.x, pos2.y);
+        }
+
+        // 🔴 3) Échec → revert
+        item.itemData.width = oldW;
+        item.itemData.height = oldH;
+        item.UpdateSize();
+        item.UpdateOutline();
+        item.ResetVisualLayout();
+        return false;
+    }
+
+    public void AddToInventoryList(ItemUI item)
+    {
+        if (item == null) return;
+        if (!items.Contains(item))
+            items.Add(item);
+    }
+
+    public bool ShiftClickTransferToPlayer(ItemUI ui)
+    {
+        var playerInv = InventoryManager.Instance;
+        if (ui == null || playerInv == null) return false;
+
+        // 1) Stack prioritaire dans l’inventaire joueur
+        // on utilise TryMergeStacks du player (il gère la destruction de la source si vide)
+        foreach (var target in playerInv.GetComponentsInChildren<ItemUI>(true))
+        {
+            if (target == null) continue;
+            if (playerInv.TryMergeStacks(ui, target))
+            {
+                if (ui.currentStack <= 0)
+                {
+                    RemoveItem(ui); // libère slots + détruit l’UI côté conteneur
+                    return true;
+                }
+            }
+        }
+
+        // 2) Sinon, déplacer l’UI vers l’inventaire (auto-place)
+        DetachWithoutDestroy(ui);     // l’enlever logiquement du conteneur
+        if (!playerInv.TryAutoPlace(ui))
+        {
+            // échec -> le remettre dans le conteneur à une place valide
+            AddToInventoryList(ui);
+            TryAutoPlace(ui);
+            return false;
+        }
+
+        // Ajoute à la liste logique du joueur
+        playerInv.AddToInventoryList(ui);
+        return true;
     }
 }

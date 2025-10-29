@@ -353,10 +353,66 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         {
             if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
             {
+                // 🔍 Vérifie si un conteneur est ouvert
+                var containerInv = ContainerUIController.Instance?.GetActiveContainerInventory();
+                bool containerOpen = (containerInv != null && containerInv.gameObject.activeInHierarchy);
+
+                // =============================
+                // 🟢 Cas 1 : conteneur ouvert → transfert entre inventaires
+                // =============================
+                if (containerOpen)
+                {
+                    bool isInPlayerInventory = GetComponentInParent<InventoryManager>() != null;
+                    bool isInContainer = GetComponentInParent<ContainerInventoryManager>() != null;
+
+                    if (isInPlayerInventory)
+                    {
+                        // joueur → conteneur
+                        if (containerInv.TryAutoPlace(this))
+                        {
+                            InventoryManager.Instance.RemoveItem(this);
+                            containerInv.AddToInventoryList(this);
+                            Debug.Log($"[ShiftClick] Transféré {itemData.itemName} → conteneur");
+                        }
+                        else
+                        {
+                            Debug.Log("[ShiftClick] Pas d’espace dans le conteneur.");
+                        }
+                    }
+                    else if (isInContainer)
+                    {
+                        // conteneur → joueur
+                        if (InventoryManager.Instance.TryAutoPlace(this))
+                        {
+                            containerInv.RemoveItem(this);
+                            InventoryManager.Instance.AddToInventoryList(this);
+                            Debug.Log($"[ShiftClick] Transféré {itemData.itemName} → inventaire joueur");
+                        }
+                        else
+                        {
+                            Debug.Log("[ShiftClick] Inventaire plein.");
+                        }
+                    }
+
+                    return;
+                }
+
+                // =============================
+                // 🟣 Cas 2 : pas de conteneur ouvert → comportement d’équipement normal
+                // =============================
+                if (itemData.isEquipable && EquipementManager.Instance != null)
+                {
+                    EquipementManager.Instance.TryEquipItem(this);
+                    return;
+                }
+
+                // =============================
+                // 🟠 Cas 3 : fallback (inventaire vers inventaire interne)
+                // =============================
                 if (InventoryManager.Instance != null)
                 {
                     InventoryManager.Instance.QuickTransfer(this);
-                    return; // stoppe ici pour ne pas ouvrir le menu contextuel
+                    return;
                 }
             }
         }
@@ -564,5 +620,13 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             var gr = GetComponent<UnityEngine.UI.GraphicRaycaster>();
             if (gr != null) Destroy(gr);
         }
+    }
+
+    public void SetStack(int amount)
+    {
+        if (!itemData.isStackable) return;
+
+        currentStack = Mathf.Clamp(amount, 1, itemData.maxStack);
+        UpdateStackText();
     }
 }

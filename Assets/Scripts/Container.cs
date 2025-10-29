@@ -5,13 +5,20 @@ using UnityEngine;
 [RequireComponent(typeof(Collider))]
 public class Container : MonoBehaviour
 {
+    [System.Serializable]
+    public class ContainerItemEntry
+    {
+        public ItemData itemData;
+        [Min(1)] public int stackCount = 1;
+    }
+
     [Header("Paramètres du conteneur")]
     public string containerName = "Coffre";
     public int width = 6;
     public int height = 5;
 
-    [Header("Items de départ")]
-    public ItemData[] startingItems;
+    [Header("Items de départ configurables")]
+    public List<ContainerItemEntry> startingItems = new List<ContainerItemEntry>();
 
     // ✅ Inventaire interne persistant
     [SerializeField] private List<StoredItem> storedItems = new List<StoredItem>();
@@ -62,27 +69,32 @@ public class Container : MonoBehaviour
         inv.InitializeGrid();
 
         // 🔹 Si le coffre n’a jamais été ouvert
-        if (storedItems.Count == 0 && startingItems != null && startingItems.Length > 0)
+        if (storedItems.Count == 0 && startingItems != null && startingItems.Count > 0)
         {
-            foreach (var item in startingItems)
+            foreach (var entry in startingItems)
             {
-                if (item != null)
+                if (entry == null || entry.itemData == null) continue;
+
+                inv.AddItem(entry.itemData);
+                var lastItem = inv.items.Count > 0 ? inv.items[^1] : null;
+                if (lastItem != null && entry.itemData.isStackable)
                 {
-                    inv.AddItem(item);
-                    storedItems.Add(new StoredItem
-                    {
-                        data = item,
-                        x = 0,
-                        y = 0,
-                        width = item.width,
-                        height = item.height,
-                        stack = 1
-                    });
+                    lastItem.SetStack(entry.stackCount);
                 }
+
+                storedItems.Add(new StoredItem
+                {
+                    data = entry.itemData,
+                    x = 0,
+                    y = 0,
+                    width = entry.itemData.width,
+                    height = entry.itemData.height,
+                    stack = entry.stackCount
+                });
             }
 
-            // 🧹 Vide la liste de départ pour ne pas dupliquer
-            startingItems = new ItemData[0];
+            // 🧹 Vide la liste pour éviter les duplications
+            startingItems.Clear();
         }
         else
         {

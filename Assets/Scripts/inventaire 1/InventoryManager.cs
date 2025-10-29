@@ -599,4 +599,43 @@ public class InventoryManager : MonoBehaviour
         var gr = root.GetComponent<UnityEngine.UI.GraphicRaycaster>();
         if (gr != null) Destroy(gr);
     }
+
+    public bool ShiftClickTransferToOpenContainer(ItemUI ui)
+    {
+        var container = ContainerUIController.Instance?.GetActiveContainerInventory();
+        if (ui == null || container == null) return false;
+
+        // 1) Stack prioritaire dans le conteneur
+        foreach (var other in container.items)
+        {
+            if (other == null) continue;
+            if (TryMergeStacks(ui, other))
+            {
+                // si tout le stack source est parti, supprime l'UI de l'inventaire
+                if (ui.currentStack <= 0)
+                {
+                    RemoveItem(ui);
+                    return true;
+                }
+                // partiel : on continue (il reste qq unités)
+            }
+        }
+
+        // 2) Sinon, déplacer l’UI vers le conteneur (auto-place)
+        // Détacher proprement de l’inventaire joueur
+        DetachWithoutDestroy(ui);
+
+        // Essayer de placer dans le conteneur (orientation actuelle ou pivotée)
+        if (!container.TryAutoPlace(ui))
+        {
+            // échec -> le remettre dans l’inventaire à sa place auto
+            AddToInventoryList(ui);
+            TryAutoPlace(ui);
+            return false;
+        }
+
+        // Ajoute à la liste logique du conteneur
+        container.AddToInventoryList(ui);
+        return true;
+    }
 }
