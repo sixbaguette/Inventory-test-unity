@@ -205,6 +205,13 @@ public class ContainerInventoryManager : MonoBehaviour
     public void RemoveItem(ItemUI ui)
     {
         if (ui == null) return;
+
+        if (slots != null)
+        {
+            foreach (var s in slots)
+                s?.ResetHighlight();
+        }
+
         if (items.Contains(ui))
             items.Remove(ui);
 
@@ -244,5 +251,19 @@ public class ContainerInventoryManager : MonoBehaviour
         if (c != null) Destroy(c);
         var gr = root.GetComponent<UnityEngine.UI.GraphicRaycaster>();
         if (gr != null) Destroy(gr);
+    }
+
+    public void AddIfMissing(ItemUI ui)
+    {
+        if (ui == null) return;
+        // ta liste "items" est private readonly List<ItemUI> items = new();
+        // on s'assure simplement que l'UI y est bien suivie
+        var field = typeof(ContainerInventoryManager)
+                    .GetField("items", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+        var list = field?.GetValue(this) as List<ItemUI>;
+        if (list == null) return;
+
+        if (!list.Contains(ui)) list.Add(ui);
     }
 }

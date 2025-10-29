@@ -97,8 +97,17 @@ public class EquipementSlot : MonoBehaviour, IDropHandler
 
         if (itemUI.outline != null)
         {
+            var outlineRT = itemUI.outline.rectTransform;
+            outlineRT.anchorMin = outlineRT.anchorMax = outlineRT.pivot = new Vector2(0.5f, 0.5f);
+            outlineRT.anchoredPosition = Vector2.zero;
+
+            // 🧩 ajuste pile à la taille du slot
+            outlineRT.sizeDelta = sr.sizeDelta;
+
+            // Optionnel : léger dépassement visuel (contour visible sans dépasser)
+            // outlineRT.sizeDelta += new Vector2(2, 2);
+
             itemUI.outline.enabled = true;
-            itemUI.outline.rectTransform.sizeDelta = sr.sizeDelta + new Vector2(4, 4);
         }
 
         if (iconDisplay != null)

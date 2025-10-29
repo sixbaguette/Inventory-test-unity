@@ -323,8 +323,16 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
         itemUI.EnableRaycastAfterDrop();
         itemUI.DisableExtraCanvasIfInInventory();
 
-        // === 7️⃣ Stack automatique entre inventaire et conteneur ===
-        TryMergeStacksCrossInventories(playerInv, openContainer, itemUI);
+        // === 7️⃣ Stack prioritaire avec l'ItemUI sous la souris ===
+        if (!TryMergeStackUnderPointer(eventData, itemUI))
+        {
+            // Fallback : on peut garder ton scan global si tu veux tenter d'autres fusions
+            TryMergeStacksCrossInventories(InventoryManager.Instance,
+                                           ContainerUIController.Instance?.GetActiveContainerInventory(),
+                                           itemUI);
+        }
+        // ✅ Toujours nettoyer les highlights même si le stack s'est fait ou échoué
+        ClearAllHighlights();
     }
 
     private void TryMergeStacksCrossInventories(InventoryManager playerInv, ContainerInventoryManager containerInv, ItemUI draggedItem)
@@ -627,5 +635,97 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
                 if (cx < 0 || cy < 0 || cx >= cont.width || cy >= cont.height) continue;
                 cont.slots[cx, cy].Highlight(canPlace ? Color.green : Color.red);
             }
+    }
+
+    // Qui "possède" cet ItemUI ? (joueur / conteneur / aucun)
+    private enum Owner { None, Player, Container }
+
+    private Owner GetOwner(ItemUI ui, out InventoryManager player, out ContainerInventoryManager cont)
+    {
+        player = ui ? ui.GetComponentInParent<InventoryManager>() : null;
+        cont = ui ? ui.GetComponentInParent<ContainerInventoryManager>() : null;
+        if (player != null) return Owner.Player;
+        if (cont != null) return Owner.Container;
+        return Owner.None;
+    }
+
+    // Retire un item de son inventaire propriétaire
+    private void RemoveFromOwner(ItemUI ui)
+    {
+        if (ui == null) return;
+        var owner = GetOwner(ui, out var player, out var cont);
+        switch (owner)
+        {
+            case Owner.Player:
+                if (player != null) player.RemoveItem(ui);
+                break;
+            case Owner.Container:
+                if (cont != null) cont.RemoveItem(ui);
+                break;
+        }
+    }
+
+    // S’assure que l’item figure dans la liste logique de son propriétaire actuel
+    private void EnsureRegisteredInOwnerList(ItemUI ui)
+    {
+        if (ui == null) return;
+        var owner = GetOwner(ui, out var player, out var cont);
+        if (owner == Owner.Player && player != null)
+        {
+            player.AddToInventoryList(ui);
+        }
+        else if (owner == Owner.Container && cont != null)
+        {
+            cont.AddIfMissing(ui); // 👈 on ajoute cette petite méthode côté conteneur plus bas
+        }
+    }
+
+    // Essaie de merger avec l’ItemUI directement SOUS la souris (prioritaire)
+    private bool TryMergeStackUnderPointer(PointerEventData eventData, ItemUI dragged)
+    {
+        if (dragged == null || dragged.itemData == null || !dragged.itemData.isStackable) return false;
+        if (UnityEngine.EventSystems.EventSystem.current == null) return false;
+
+        var pd = new PointerEventData(UnityEngine.EventSystems.EventSystem.current) { position = eventData.position };
+        var results = new List<RaycastResult>();
+        UnityEngine.EventSystems.EventSystem.current.RaycastAll(pd, results);
+
+        foreach (var r in results)
+        {
+            var target = r.gameObject.GetComponentInParent<ItemUI>();
+            if (target == null || target == dragged) continue;
+            if (target.itemData != dragged.itemData) continue; // même SO
+            if (!target.itemData.isStackable) continue;
+            if (target.currentStack >= target.itemData.maxStack) continue;
+
+            // On fusionne
+            int space = target.itemData.maxStack - target.currentStack;
+            int moved = Mathf.Min(space, dragged.currentStack);
+
+            target.currentStack += moved;
+            target.UpdateStackText();
+
+            dragged.currentStack -= moved;
+            dragged.UpdateStackText();
+
+            if (dragged.currentStack <= 0)
+            {
+                // ✅ retire de son inventaire ET détruit le GameObject
+                RemoveFromOwner(dragged);
+                if (dragged != null && dragged.gameObject != null)
+                    Object.Destroy(dragged.gameObject);
+            }
+            else
+            {
+                EnsureRegisteredInOwnerList(dragged);
+            }
+
+            // Juste pour être propre visuellement
+            target.UpdateOutline();
+            dragged.UpdateOutline();
+
+            return true;
+        }
+        return false;
     }
 }

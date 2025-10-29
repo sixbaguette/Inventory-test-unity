@@ -332,6 +332,13 @@ public class InventoryManager : MonoBehaviour
     {
         if (data == null) return false;
 
+        // 🧹 Nettoyage de sécurité : retire toute référence d'ItemUI détruit
+        for (int i = inventoryItems.Count - 1; i >= 0; i--)
+        {
+            if (inventoryItems[i] == null)
+                inventoryItems.RemoveAt(i);
+        }
+
         // === Si stackable : essaie de compléter un stack existant ===
         if (data.isStackable)
         {
@@ -403,6 +410,13 @@ public class InventoryManager : MonoBehaviour
     public void RemoveItem(ItemUI itemUI)
     {
         if (itemUI == null) return;
+
+        // 🔹 Nettoie les highlights résiduels
+        if (slots != null)
+        {
+            foreach (var s in slots)
+                s?.ResetHighlight();
+        }
 
         // ✅ sécurité supplémentaire : évite les suppressions multiples
         if (!inventoryItems.Contains(itemUI))
