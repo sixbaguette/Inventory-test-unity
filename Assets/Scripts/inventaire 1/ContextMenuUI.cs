@@ -136,13 +136,38 @@ public class ContextMenuUI : MonoBehaviour
         equipButton.onClick.RemoveAllListeners();
 
         // 🔸 Drop
+        dropButton.onClick.RemoveAllListeners();
         dropButton.onClick.AddListener(() =>
         {
-            PlayerPickupManager ppm = FindFirstObjectByType<PlayerPickupManager>();
-            if (ppm != null)
+            var ppm = FindFirstObjectByType<PlayerPickupManager>();
+            var equipSlot = currentItem.GetComponentInParent<EquipementSlot>();
+
+            if (equipSlot != null && equipSlot.CurrentItem == currentItem)
             {
-                ppm.DropSpecificItem(currentItem);
+                // ✅ Cas : l’objet est dans un slot d’équipement
+                if (currentItem.itemData.isStackable && currentItem.currentStack > 1)
+                {
+                    // 🟢 Drop 1 exemplaire, reste équipé
+                    ppm?.DropSpecificItem(currentItem);
+
+                    // Réactualise juste le visuel du slot (on garde l’objet)
+                    equipSlot.ForceRefreshVisual(currentItem);
+                    Debug.Log($"[EquipSlot Drop] 1x {currentItem.itemData.itemName} lâché depuis équipement (reste {currentItem.currentStack}).");
+                }
+                else
+                {
+                    // 🔴 Dernier exemplaire ou non-stackable → drop complet et vide le slot
+                    ppm?.DropSpecificItem(currentItem);
+                    equipSlot.ForceClearSlot();  // ⬅️ au lieu de UnequipItem()
+                    Debug.Log($"[EquipSlot Drop] {currentItem.itemData.itemName} lâché et slot vidé.");
+                }
             }
+            else
+            {
+                // 🔁 Drop normal depuis l’inventaire
+                ppm?.DropSpecificItem(currentItem);
+            }
+
             Hide();
         });
 
@@ -153,9 +178,21 @@ public class ContextMenuUI : MonoBehaviour
             dropStackButton.onClick.RemoveAllListeners();
             dropStackButton.onClick.AddListener(() =>
             {
-                PlayerPickupManager ppm = FindFirstObjectByType<PlayerPickupManager>();
-                if (ppm != null)
-                    ppm.DropEntireStack(currentItem);
+                var ppm = FindFirstObjectByType<PlayerPickupManager>();
+                var equipSlot = currentItem.GetComponentInParent<EquipementSlot>();
+
+                if (equipSlot != null && equipSlot.CurrentItem == currentItem)
+                {
+                    // ✅ Drop tout le stack → vide le slot après
+                    ppm?.DropEntireStack(currentItem);
+                    equipSlot.ForceClearSlot();
+                    Debug.Log($"[EquipSlot DropStack] Stack complet de {currentItem.itemData.itemName} lâché et slot vidé.");
+                }
+                else
+                {
+                    ppm?.DropEntireStack(currentItem);
+                }
+
                 Hide();
             });
         }
@@ -288,7 +325,15 @@ public class ContextMenuUI : MonoBehaviour
 
         Debug.Log($"[ContextMenu] Drop de {currentItem.itemData.itemName}");
 
-        // On appelle ton PlayerPickupManager pour gérer le drop
+        // 🧩 Vérifie si l’item vient d’un slot d’équipement
+        var equipSlot = currentItem.GetComponentInParent<EquipementSlot>();
+        if (equipSlot != null)
+        {
+            Debug.Log("[ContextMenu] Drop depuis un slot d’équipement → on le déséquipe d’abord.");
+            equipSlot.UnequipItem(); // ✅ vide le slot et replace l’item dans l’inventaire temporairement
+        }
+
+        // 🟢 Drop logique au sol
         PlayerPickupManager ppm = FindFirstObjectByType<PlayerPickupManager>();
         if (ppm != null)
         {
@@ -296,7 +341,7 @@ public class ContextMenuUI : MonoBehaviour
         }
         else
         {
-            // Si jamais il n’existe pas encore, on supprime l’item directement
+            // fallback : supprime l'item de l'inventaire si aucun PlayerPickupManager
             InventoryManager.Instance.RemoveItem(currentItem);
         }
 
@@ -306,6 +351,13 @@ public class ContextMenuUI : MonoBehaviour
     private void OnDropStack()
     {
         if (currentItem == null) return;
+
+        var equipSlot = currentItem.GetComponentInParent<EquipementSlot>();
+        if (equipSlot != null)
+        {
+            Debug.Log("[ContextMenu] Drop stack depuis un slot d’équipement → déséquipe d’abord.");
+            equipSlot.UnequipItem();
+        }
 
         PlayerPickupManager ppm = FindFirstObjectByType<PlayerPickupManager>();
         if (ppm != null)

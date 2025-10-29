@@ -69,4 +69,24 @@ public class ItemData : ScriptableObject
     public AudioClip reloadSound;          // ✅ son du rechargement
     public AudioClip emptyClickSound;
     public ParticleSystem muzzleFlash;     // ✅ effet visuel de tir
+
+    public bool IsSameType(ItemData other)
+    {
+        if (other == null) return false;
+        if (ReferenceEquals(this, other)) return true;
+
+        // 1) clé forte si tu utilises prefabName
+        if (!string.IsNullOrEmpty(prefabName) && !string.IsNullOrEmpty(other.prefabName))
+            return prefabName == other.prefabName;
+
+        // 2) munitions : même type de balle => même pile
+        if (isAmmo && other.isAmmo)
+            return ammoType == other.ammoType;
+
+        // 3) fallback sûr par nom exact (si tu gardes des noms stricts)
+        if (!string.IsNullOrEmpty(itemName) && !string.IsNullOrEmpty(other.itemName))
+            return string.Equals(itemName, other.itemName, System.StringComparison.Ordinal);
+
+        return false;
+    }
 }

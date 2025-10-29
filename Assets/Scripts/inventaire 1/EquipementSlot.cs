@@ -195,4 +195,115 @@ public class EquipementSlot : MonoBehaviour, IDropHandler
         }
         itemUI.ResetVisualLayout();
     }
+
+    public void DropEquippedItem()
+    {
+        if (currentItem == null)
+        {
+            Debug.LogWarning("[EquipementSlot] Aucun item à drop.");
+            return;
+        }
+
+        // 1) Cache la ref puis libère le slot
+        ItemUI itemToDrop = currentItem;
+        currentItem = null;
+        if (iconDisplay != null) iconDisplay.enabled = true;
+
+        // 2) Retire l’arme/équipement visible du joueur (si nécessaire)
+        var hotbar = FindFirstObjectByType<HotbarManager>();
+        if (hotbar != null && hotbar.playerEquipHandler != null)
+            hotbar.playerEquipHandler.UnequipAll();
+
+        // 3) Reparent vers l’inventaire + enregistre-le dans la liste logique
+        var inv = InventoryManager.Instance;
+        if (inv != null && inv.itemsLayer != null)
+        {
+            // enlève toute empreinte d’occupation (au cas où)
+            if (itemToDrop.occupiedSlots != null)
+            {
+                foreach (var s in itemToDrop.occupiedSlots) s?.ClearItem();
+            }
+            itemToDrop.currentSlot = null;
+            itemToDrop.occupiedSlots = null;
+
+            // reparent dans la couche d’items
+            itemToDrop.transform.SetParent(inv.itemsLayer, false);
+            inv.AddToInventoryList(itemToDrop);
+
+            // optionnel: on le place quelque part, mais pas obligatoire pour le drop
+            // (on évite les repositionnements inutiles)
+        }
+
+        // 4) Drop via le système habituel (détruira l’UI et enlèvera de l’inventaire)
+        var ppm = FindFirstObjectByType<PlayerPickupManager>();
+        if (ppm != null)
+        {
+            ppm.DropSpecificItem(itemToDrop);
+        }
+        else
+        {
+            Debug.LogWarning("[EquipementSlot] Aucun PlayerPickupManager trouvé, suppression directe.");
+            InventoryManager.Instance.RemoveItem(itemToDrop);
+        }
+
+        Debug.Log($"[EquipementSlot] {itemToDrop.itemData.itemName} droppé depuis un slot d’équipement.");
+    }
+
+    /// <summary>
+    /// Vide le slot sans replacer l’item dans l’inventaire (utile pour drop stack)
+    /// </summary>
+    public void ForceClearSlot()
+    {
+        if (currentItem == null)
+            return;
+
+        // Supprime la référence
+        ItemUI itemToDestroy = currentItem;
+        currentItem = null;
+
+        // Restaure l’icône du slot
+        if (iconDisplay != null)
+            iconDisplay.enabled = true;
+
+        // Détruit l’objet UI (il a déjà été droppé au sol)
+        if (itemToDestroy != null)
+        {
+            Destroy(itemToDestroy.gameObject);
+        }
+
+        Debug.Log("[EquipementSlot] Slot vidé sans retour inventaire.");
+    }
+
+    /// <summary>
+    /// Réactualise visuellement l’objet déjà équipé sans le déséquiper.
+    /// Utile après un drop partiel de stack.
+    /// </summary>
+    public void ForceRefreshVisual(ItemUI item)
+    {
+        if (item == null) return;
+
+        currentItem = item;
+        if (iconDisplay != null)
+            iconDisplay.enabled = false;
+
+        item.transform.SetParent(transform, false);
+        item.rectTransform.localScale = Vector3.one;
+        item.rectTransform.anchoredPosition3D = Vector3.zero;
+
+        item.UpdateStackText();
+        item.UpdateOutline();
+        item.ResetVisualLayout();
+
+        // ✨ Feedback visuel léger (flash jaune rapide)
+        Image icon = item.icon;
+        if (icon != null)
+        {
+            var c = icon.color;
+            icon.color = Color.yellow;
+            LeanTween.value(icon.gameObject, (float v) =>
+            {
+                icon.color = Color.Lerp(Color.yellow, c, v);
+            }, 0f, 1f, 0.25f).setEaseOutCubic();
+        }
+    }
 }

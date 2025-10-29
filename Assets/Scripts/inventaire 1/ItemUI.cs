@@ -44,6 +44,8 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     public int currentAmmo = -1; // -1 = pas encore initialisé
 
     private UnityEngine.UI.Image hitbox; // image transparente raycastable
+    public enum ItemOwner { None, Player, Container, Equipment }
+    public ItemOwner Owner { get; set; } = ItemOwner.None;
 
     private void Awake()
     {
@@ -348,67 +350,60 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        // ✅ Quick transfer (Shift + clic gauche)
-        if (eventData.button == PointerEventData.InputButton.Left)
+        // ✅ SHIFT + CLIC GAUCHE
+        if (eventData.button == PointerEventData.InputButton.Left &&
+            (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)))
         {
-            if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
+            var containerInv = ContainerUIController.Instance?.GetActiveContainerInventory();
+            bool containerOpen = (containerInv != null && containerInv.gameObject.activeInHierarchy);
+
+            Debug.Log($"[OnPointerClick] Shift+Left on {itemData?.itemName} | containerOpen={containerOpen}");
+
+            if (containerOpen)
             {
-                // 🔍 Vérifie si un conteneur est ouvert
-                var containerInv = ContainerUIController.Instance?.GetActiveContainerInventory();
-                bool containerOpen = (containerInv != null && containerInv.gameObject.activeInHierarchy);
-
-                // =============================
-                // 🟢 Cas 1 : conteneur ouvert → transfert entre inventaires
-                // =============================
-                if (containerOpen)
+                // === Cas 1 : conteneur ouvert → transfert entre inventaires ===
+                switch (Owner)
                 {
-                    bool isInPlayerInventory = GetComponentInParent<InventoryManager>() != null;
-                    bool isInContainer = GetComponentInParent<ContainerInventoryManager>() != null;
+                    case ItemOwner.Player:
+                        InventoryManager.Instance.ShiftClickTransferToOpenContainer(this);
+                        break;
 
-                    if (isInPlayerInventory)
+                    case ItemOwner.Container:
+                        var cont = ContainerUIController.Instance?.GetActiveContainerInventory();
+                        if (cont != null)
+                            cont.ShiftClickTransferToPlayer(this);
+                        break;
+                }
+            }
+            else
+            {
+                // === Cas 2 : aucun conteneur ouvert → toggle equip ===
+                if (itemData != null && itemData.isEquipable && EquipementManager.Instance != null)
+                {
+                    // 👉 Toggle : si déjà équipé, on déséquipe vers l’inventaire
+                    if (EquipementManager.Instance.IsEquipped(this))
                     {
-                        // joueur → conteneur
-                        if (containerInv.TryAutoPlace(this))
+                        bool unequipped = EquipementManager.Instance.UnequipToInventory(this);
+                        if (unequipped)
                         {
-                            InventoryManager.Instance.RemoveItem(this);
-                            containerInv.AddToInventoryList(this);
-                            Debug.Log($"[ShiftClick] Transféré {itemData.itemName} → conteneur");
+                            Debug.Log($"[ShiftClick] {itemData.itemName} déséquipé via shift+clic.");
+                            return;
                         }
-                        else
+                        // si échec, on laisse continuer vers fallback
+                    }
+                    else
+                    {
+                        // Pas équipé → on tente d’équiper
+                        bool equipped = EquipementManager.Instance.TryEquipItem(this);
+                        if (equipped)
                         {
-                            Debug.Log("[ShiftClick] Pas d’espace dans le conteneur.");
+                            Debug.Log($"[ShiftClick] {itemData.itemName} équipé via shift+clic.");
+                            return;
                         }
                     }
-                    else if (isInContainer)
-                    {
-                        // conteneur → joueur
-                        if (InventoryManager.Instance.TryAutoPlace(this))
-                        {
-                            containerInv.RemoveItem(this);
-                            InventoryManager.Instance.AddToInventoryList(this);
-                            Debug.Log($"[ShiftClick] Transféré {itemData.itemName} → inventaire joueur");
-                        }
-                        else
-                        {
-                            Debug.Log("[ShiftClick] Inventaire plein.");
-                        }
-                    }
-
-                    return;
                 }
 
-                // =============================
-                // 🟣 Cas 2 : pas de conteneur ouvert → comportement d’équipement normal
-                // =============================
-                if (itemData.isEquipable && EquipementManager.Instance != null)
-                {
-                    EquipementManager.Instance.TryEquipItem(this);
-                    return;
-                }
-
-                // =============================
-                // 🟠 Cas 3 : fallback (inventaire vers inventaire interne)
-                // =============================
+                // === Cas 3 : fallback (ex: arme non équipable) ===
                 if (InventoryManager.Instance != null)
                 {
                     InventoryManager.Instance.QuickTransfer(this);
@@ -417,7 +412,7 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             }
         }
 
-        // 🎯 Menu contextuel (clic droit)
+        // 🎯 CLIC DROIT → Menu contextuel
         if (eventData.button == PointerEventData.InputButton.Right)
         {
             if (ContextMenuUI.Instance != null)

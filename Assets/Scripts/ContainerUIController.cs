@@ -167,10 +167,10 @@ public class ContainerUIController : MonoBehaviour
         Debug.Log("[ContainerUI] Conteneur fermé, items détruits et grille réinitialisée.");
     }
 
-
     public ContainerInventoryManager GetActiveContainerInventory()
     {
-        if (containerInv != null && containerUIRoot.activeSelf)
+        // on ne dépend plus de activeSelf, on vérifie juste que le canvas est visible
+        if (containerInv != null && canvasGroup != null && canvasGroup.alpha > 0f)
             return containerInv;
         return null;
     }

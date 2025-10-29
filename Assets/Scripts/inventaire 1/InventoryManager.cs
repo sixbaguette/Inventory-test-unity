@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using static ItemUI;
 
 public class InventoryManager : MonoBehaviour
 {
@@ -136,41 +137,43 @@ public class InventoryManager : MonoBehaviour
     public bool TryMergeStacks(ItemUI source, ItemUI target)
     {
         if (source == null || target == null) return false;
-        if (source.itemData != target.itemData) return false;
-        if (!source.itemData.isStackable) return false;
+        if (source.itemData == null || target.itemData == null) return false;
+        if (!source.itemData.isStackable || !target.itemData.isStackable) return false;
+        if (!source.itemData.IsSameType(target.itemData)) return false;
 
         int spaceLeft = target.itemData.maxStack - target.currentStack;
         if (spaceLeft <= 0) return false;
 
         int moved = Mathf.Min(spaceLeft, source.currentStack);
-        target.currentStack += moved;
-        source.currentStack -= moved;
+        if (moved <= 0) return false;
 
+        target.currentStack += moved;
         target.UpdateStackText();
+
+        source.currentStack -= moved;
         source.UpdateStackText();
 
-        // ✅ Si le stack source est vide après fusion → on le retire proprement
         if (source.currentStack <= 0)
         {
-            // 1️⃣ Libère visuellement ses anciens slots
-            if (source.occupiedSlots != null)
+            // 🔺 Supprimer la source selon son propriétaire réel
+            switch (source.Owner)
             {
-                foreach (var s in source.occupiedSlots)
-                    if (s != null)
-                        s.ClearItem();
+                case ItemUI.ItemOwner.Player:
+                    RemoveItem(source); // enlève des slots + détruit l’UI
+                    break;
+                case ItemUI.ItemOwner.Container:
+                    var cont = source.GetComponentInParent<ContainerInventoryManager>();
+                    if (cont != null) cont.RemoveItem(source);
+                    else if (source != null && source.gameObject != null) Destroy(source.gameObject);
+                    break;
+                default:
+                    if (source != null && source.gameObject != null) Destroy(source.gameObject);
+                    break;
             }
-
-            // 2️⃣ Retire l’ItemUI de la liste d’inventaire
-            if (inventoryItems.Contains(source))
-                inventoryItems.Remove(source);
-
-            // 3️⃣ Supprime le GameObject (UI)
-            if (source != null && source.gameObject != null)
-                Destroy(source.gameObject);
-
-            Debug.Log($"Stack {source.itemData.itemName} fusionné et supprimé proprement.");
         }
 
+        // petit polish visuel
+        target.UpdateOutline();
         return true;
     }
 
@@ -323,6 +326,7 @@ public class InventoryManager : MonoBehaviour
         itemUI.DisableExtraCanvasIfInInventory();
         StripLocalCanvas(itemUI); // 🧹 supprime les Canvas temporaires (drag)
 
+        itemUI.Owner = ItemOwner.Player;
         return true;
     }
 
@@ -586,6 +590,7 @@ public class InventoryManager : MonoBehaviour
         // Nettoie les refs d’emplacement
         ui.occupiedSlots = null;
         ui.currentSlot = null;
+        ui.Owner = ItemOwner.None;
     }
 
     // =======================================================
@@ -600,42 +605,91 @@ public class InventoryManager : MonoBehaviour
         if (gr != null) Destroy(gr);
     }
 
+    // Shift+clic depuis l'inventaire joueur -> conteneur OU1 (ouvert)
     public bool ShiftClickTransferToOpenContainer(ItemUI ui)
     {
-        var container = ContainerUIController.Instance?.GetActiveContainerInventory();
-        if (ui == null || container == null) return false;
-
-        // 1) Stack prioritaire dans le conteneur
-        foreach (var other in container.items)
+        var cont = ContainerUIController.Instance?.GetActiveContainerInventory();
+        // 🧠 Sécurité : assure que les deux listes sont à jour
+        AddToInventoryList(ui);
+        cont?.AddIfMissing(ui);
+        if (ui == null || cont == null)
         {
-            if (other == null) continue;
-            if (TryMergeStacks(ui, other))
-            {
-                // si tout le stack source est parti, supprime l'UI de l'inventaire
-                if (ui.currentStack <= 0)
-                {
-                    RemoveItem(ui);
-                    return true;
-                }
-                // partiel : on continue (il reste qq unités)
-            }
-        }
-
-        // 2) Sinon, déplacer l’UI vers le conteneur (auto-place)
-        // Détacher proprement de l’inventaire joueur
-        DetachWithoutDestroy(ui);
-
-        // Essayer de placer dans le conteneur (orientation actuelle ou pivotée)
-        if (!container.TryAutoPlace(ui))
-        {
-            // échec -> le remettre dans l’inventaire à sa place auto
-            AddToInventoryList(ui);
-            TryAutoPlace(ui);
+            Debug.LogWarning("[ShiftClick] Aucun conteneur ouvert.");
             return false;
         }
 
-        // Ajoute à la liste logique du conteneur
-        container.AddToInventoryList(ui);
+        // 1️⃣ Fusion prioritaire dans le conteneur (avant tout placement)
+        foreach (var other in cont.items.ToArray())
+        {
+            if (other == null || other.itemData == null) continue;
+            if (!other.itemData.isStackable) continue;
+            if (!other.itemData.IsSameType(ui.itemData)) continue;
+
+            int space = other.itemData.maxStack - other.currentStack;
+            if (space <= 0) continue;
+
+            int moved = Mathf.Min(space, ui.currentStack);
+            if (moved <= 0) continue;
+
+            other.currentStack += moved;
+            other.UpdateStackText();
+
+            ui.currentStack -= moved;
+            ui.UpdateStackText();
+
+            Debug.Log($"[ShiftClick] Fusion {moved} -> conteneur ({other.itemData.itemName})");
+
+            if (ui.currentStack <= 0)
+            {
+                RemoveItem(ui);
+                return true;
+            }
+        }
+
+        // ✅ Nouveau : fusion post-placement (si même item déjà là)
+        if (ui.currentStack > 0)
+        {
+            foreach (var other in cont.items.ToArray())
+            {
+                if (other == null || other == ui) continue;
+                InventoryManager.Instance.TryMergeStacks(ui, other);
+                if (ui.currentStack <= 0) return true;
+            }
+        }
+
+        // 2️⃣ Trouve une position libre dans la grille du conteneur
+        var pos = cont.FindFreeSpaceFor(ui.itemData);
+        if (!pos.HasValue)
+        {
+            Debug.Log("[ShiftClick] Pas d’espace libre dans le conteneur.");
+            return false;
+        }
+
+        // ⚙️ 3️⃣ Déplace visuellement et logiquement l’item
+        // - on le détache proprement de l’inventaire
+        DetachWithoutDestroy(ui);
+
+        // - on change le parent du RectTransform
+        ui.transform.SetParent(cont.itemsLayer != null ? cont.itemsLayer : cont.slotParent, false);
+
+        // - on place à la position libre
+        bool placed = cont.PlaceItem(ui, pos.Value.x, pos.Value.y);
+        if (!placed)
+        {
+            TryAutoPlace(ui);
+            AddToInventoryList(ui);
+            return false;
+        }
+
+        // - on ajoute à la liste interne du conteneur
+        cont.AddIfMissing(ui);
+
+        // - on assure l’interaction visuelle
+        ui.EnableRaycastAfterDrop();
+        ui.DisableExtraCanvasIfInInventory();
+        ui.transform.SetAsLastSibling();
+
+        Debug.Log($"[ShiftClick] {ui.itemData.itemName} déplacé vers conteneur ({pos.Value.x},{pos.Value.y})");
         return true;
     }
 }

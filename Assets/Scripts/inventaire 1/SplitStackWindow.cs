@@ -19,6 +19,33 @@ public class SplitStackWindow : MonoBehaviour
         Instance = this;
         gameObject.SetActive(false);
 
+        // 🔝 Force le SplitStackWindow à être dans un Canvas overlay tout en haut
+        Canvas overlay = null;
+        var existing = GameObject.Find("TopOverlayCanvas");
+        if (existing != null)
+        {
+            overlay = existing.GetComponent<Canvas>();
+        }
+        if (overlay == null)
+        {
+            var go = new GameObject("TopOverlayCanvas", typeof(Canvas), typeof(GraphicRaycaster));
+            overlay = go.GetComponent<Canvas>();
+            overlay.renderMode = RenderMode.ScreenSpaceOverlay;
+            overlay.overrideSorting = true;
+            overlay.sortingOrder = 5000;
+            DontDestroyOnLoad(go);
+        }
+
+        // Replace ce menu sous ce canvas
+        transform.SetParent(overlay.transform, false);
+        transform.SetAsLastSibling();
+
+        // Sécurité : ajoute un CanvasGroup pour bloquer les clics derrière
+        var cg = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
+        cg.interactable = true;
+        cg.blocksRaycasts = true;
+        cg.alpha = 1f;
+
         okButton.onClick.AddListener(OnConfirm);
         cancelButton.onClick.AddListener(Close);
     }

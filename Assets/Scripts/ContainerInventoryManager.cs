@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using static ItemUI;
 
 public class ContainerInventoryManager : MonoBehaviour
 {
@@ -189,6 +190,7 @@ public class ContainerInventoryManager : MonoBehaviour
         StripLocalCanvas(ui); // 🧹 supprime les Canvas temporaires (drag)
 
         if (!items.Contains(ui)) items.Add(ui);
+        ui.Owner = ItemOwner.Container;
         return true;
     }
 
@@ -239,6 +241,7 @@ public class ContainerInventoryManager : MonoBehaviour
 
         ui.occupiedSlots = null;
         ui.currentSlot = null;
+        ui.Owner = ItemOwner.None;
     }
 
     // =======================================================
@@ -315,38 +318,83 @@ public class ContainerInventoryManager : MonoBehaviour
             items.Add(item);
     }
 
+    // Shift+clic depuis le conteneur -> inventaire joueur
     public bool ShiftClickTransferToPlayer(ItemUI ui)
     {
-        var playerInv = InventoryManager.Instance;
-        if (ui == null || playerInv == null) return false;
+        var inv = InventoryManager.Instance;
 
-        // 1) Stack prioritaire dans l’inventaire joueur
-        // on utilise TryMergeStacks du player (il gère la destruction de la source si vide)
-        foreach (var target in playerInv.GetComponentsInChildren<ItemUI>(true))
-        {
-            if (target == null) continue;
-            if (playerInv.TryMergeStacks(ui, target))
-            {
-                if (ui.currentStack <= 0)
-                {
-                    RemoveItem(ui); // libère slots + détruit l’UI côté conteneur
-                    return true;
-                }
-            }
-        }
+        // Sécurités
+        AddIfMissing(ui);
+        inv?.AddToInventoryList(ui);
 
-        // 2) Sinon, déplacer l’UI vers l’inventaire (auto-place)
-        DetachWithoutDestroy(ui);     // l’enlever logiquement du conteneur
-        if (!playerInv.TryAutoPlace(ui))
+        if (ui == null || inv == null)
         {
-            // échec -> le remettre dans le conteneur à une place valide
-            AddToInventoryList(ui);
-            TryAutoPlace(ui);
+            Debug.LogWarning("[ShiftClick] Inventaire joueur introuvable.");
             return false;
         }
 
-        // Ajoute à la liste logique du joueur
-        playerInv.AddToInventoryList(ui);
+        // 1) Fusion immédiate vers TOUTES les piles compatibles du joueur
+        List<ItemUI> playerItems = new List<ItemUI>(inv.GetComponentsInChildren<ItemUI>(true));
+        foreach (var other in playerItems)
+        {
+            if (ui == null) return true;                 // ui peut avoir été détruit par TryMergeStacks
+            if (other == null || other == ui) continue;
+            if (other.itemData == null || ui.itemData == null) continue;
+            if (!other.itemData.isStackable) continue;
+            if (!other.itemData.IsSameType(ui.itemData)) continue;
+
+            inv.TryMergeStacks(ui, other);
+
+            if (ui == null || ui.currentStack <= 0)      // vidé/détruit pendant la fusion
+                return true;
+        }
+
+        // 2) Cherche une place libre dans la grille du joueur
+        if (!inv.FindFirstFreePosition(ui.itemData, out int px, out int py))
+        {
+            Debug.Log("[ShiftClick] Inventaire joueur plein.");
+            return false;
+        }
+
+        // 3) Déplace visuellement et logiquement l’item
+        ui.Owner = ItemUI.ItemOwner.Player;
+        DetachWithoutDestroy(ui);
+        ui.transform.SetParent(inv.itemsLayer != null ? inv.itemsLayer : inv.slotParent, false);
+
+        bool placed = inv.PlaceItem(ui, px, py);
+        if (!placed)
+        {
+            TryAutoPlace(ui);
+            AddToInventoryList(ui);
+            return false;
+        }
+
+        inv.AddToInventoryList(ui);
+        ui.EnableRaycastAfterDrop();
+        ui.DisableExtraCanvasIfInInventory();
+        ui.transform.SetAsLastSibling();
+
+        Debug.Log($"[ShiftClick] {ui.itemData.itemName} déplacé vers inventaire joueur ({px},{py})");
+
+        // 4) Fusion post-placement (réutilise la même liste, sans la redéclarer)
+        playerItems = new List<ItemUI>(inv.GetComponentsInChildren<ItemUI>(true)); // on réassigne, pas de "var" ici
+        foreach (var other in playerItems)
+        {
+            if (ui == null) return true;                 // peut avoir été détruit
+            if (other == null || other == ui) continue;
+            if (other.itemData == null || ui.itemData == null) continue;
+            if (!other.itemData.isStackable) continue;
+            if (!other.itemData.IsSameType(ui.itemData)) continue;
+
+            bool merged = inv.TryMergeStacks(ui, other);
+            if (merged)
+            {
+                Debug.Log($"[ShiftClick] Fusion post-placement réussie pour {other.itemData.itemName}");
+                if (ui == null || ui.currentStack <= 0)  // vidé/détruit pendant la fusion
+                    return true;
+            }
+        }
+
         return true;
     }
 }
