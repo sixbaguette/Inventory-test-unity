@@ -85,4 +85,9 @@ public class PlayerEquipHandler : MonoBehaviour
                 col.enabled = true;
         }
     }
+
+    public GameObject GetEquippedObject()
+    {
+        return currentEquippedObject;
+    }
 }

@@ -64,8 +64,8 @@ public class HeadBobController : MonoBehaviour
         }
 
         // 🧩 Application ADDITIVE
-        // On ne touche PAS à la position que le FPSCameraController a déjà posée cette frame.
-        transform.localPosition = baseLocalPos + currentOffset;
+        // ✅ Conserve la position du lean, on ajoute juste le bob par-dessus
+        transform.localPosition += currentOffset;
 
         // Arme optionnelle
         if (weaponHolder)

@@ -70,6 +70,11 @@ public class ItemData : ScriptableObject
     public AudioClip emptyClickSound;
     public ParticleSystem muzzleFlash;     // ✅ effet visuel de tir
 
+    [Header("Heal")]
+    public bool isHealingItem;        // ✅ active le mode soin
+    public float healAmount = 25f;    // combien de HP sont rendus
+    public float useTime = 3f;        // durée d’utilisation en secondes
+
     public bool IsSameType(ItemData other)
     {
         if (other == null)

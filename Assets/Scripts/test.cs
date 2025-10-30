@@ -2,11 +2,20 @@ using UnityEngine;
 
 public class test : MonoBehaviour
 {
+    private HealthManager playerHealth;
+
+    void Start()
+    {
+        playerHealth = FindFirstObjectByType<HealthManager>();
+        if (playerHealth == null)
+            Debug.LogError("Aucun HealthManager trouvé sur le joueur !");
+    }
+
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.N))
+        if (Input.GetKeyDown(KeyCode.N) && playerHealth != null)
         {
-            FindFirstObjectByType<HealthManager>().TakeDamage(5);
+            playerHealth.TakeDamage(5);
         }
     }
 }

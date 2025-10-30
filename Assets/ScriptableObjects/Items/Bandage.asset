@@ -39,3 +39,6 @@ MonoBehaviour:
   reloadSound: {fileID: 0}
   emptyClickSound: {fileID: 0}
   muzzleFlash: {fileID: 0}
+  isHealingItem: 1
+  healAmount: 20
+  useTime: 3

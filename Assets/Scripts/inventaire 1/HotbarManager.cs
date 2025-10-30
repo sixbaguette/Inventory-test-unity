@@ -84,4 +84,9 @@ public class HotbarManager : MonoBehaviour
             Debug.Log("[Hotbar] UnequipAll() exécuté");
         }
     }
+
+    public int GetCurrentHotbarIndex()
+    {
+        return currentActiveIndex;
+    }
 }

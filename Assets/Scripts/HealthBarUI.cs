@@ -5,22 +5,37 @@ using System.Collections;
 
 public class HealthBarUI : MonoBehaviour
 {
+    [Header("Références UI")]
     public Image fillImage;                // barre rouge
-    public CanvasGroup canvasGroup;
-    public TextMeshProUGUI healthText;
-    public Image damageOverlay;            // 🩸 overlay rouge
+    public CanvasGroup canvasGroup;        // fade de la barre
+    public TextMeshProUGUI healthText;     // texte (HP)
+    public Image damageOverlay;            // overlay rouge plein écran
+
+    [Header("Paramètres visuels")]
     public float fadeSpeed = 2f;
     public float visibleDuration = 2f;
-    public float pulseSpeed = 3f;          // vitesse du clignotement
+    public float flashDuration = 0.5f;
+    public float lowHealthThreshold = 15f; // HP critique
+    public float lowHealthAlpha = 0.5f;    // opacité du rouge constant
 
     private HealthManager healthManager;
     private Coroutine fadeRoutine;
+    private Coroutine flashRoutine;
     private float currentFill = 1f;
-    private bool isLowHealth = false;
+    private float lastHealth;
+    private bool isCritical = false;
+
+    public static HealthBarUI Instance;
+
+    private void Awake()
+    {
+        Instance = this;
+    }
 
     void Start()
     {
         healthManager = FindFirstObjectByType<HealthManager>();
+
         if (canvasGroup == null)
             canvasGroup = GetComponent<CanvasGroup>();
 
@@ -30,7 +45,10 @@ public class HealthBarUI : MonoBehaviour
             fillImage.rectTransform.pivot = new Vector2(0f, 0.5f);
 
         if (damageOverlay != null)
-            damageOverlay.color = new Color(1, 0, 0, 0); // invisible au début
+            damageOverlay.color = new Color(1, 0, 0, 0);
+
+        if (healthManager != null)
+            lastHealth = healthManager.CurrentHealth;
     }
 
     void Update()
@@ -38,7 +56,11 @@ public class HealthBarUI : MonoBehaviour
         if (healthManager == null)
             return;
 
-        float target = Mathf.Clamp01(healthManager.CurrentHealth / healthManager.maxHealth);
+        float current = healthManager.CurrentHealth;
+        float max = healthManager.maxHealth;
+        float target = Mathf.Clamp01(current / max);
+
+        // Synchronise la barre rouge
         if (Mathf.Abs(target - currentFill) > 0.001f)
         {
             currentFill = target;
@@ -47,32 +69,39 @@ public class HealthBarUI : MonoBehaviour
             ShowTemporarily();
         }
 
-        // 🩸 Texte
+        // Texte HP toujours synchronisé
         if (healthText != null)
-            healthText.text = $"{Mathf.CeilToInt(healthManager.CurrentHealth)}/{Mathf.CeilToInt(healthManager.maxHealth)}";
+            healthText.text = $"{Mathf.CeilToInt(current)}/{Mathf.CeilToInt(max)}";
 
-        // ❤️ Effet de blessure
+        // ⚡ Détection du dégât pour flash
+        if (healthManager.CurrentHealth < lastHealth)
+        {
+            if (flashRoutine != null)
+                StopCoroutine(flashRoutine);
+            flashRoutine = StartCoroutine(FlashOverlay());
+        }
+
+        lastHealth = healthManager.CurrentHealth;
+
+        // ❤️ Effet rouge permanent si HP <= seuil
         if (damageOverlay != null)
         {
-            if (healthManager.CurrentHealth <= 20f)
+            if (healthManager.CurrentHealth <= lowHealthThreshold)
             {
-                if (!isLowHealth)
-                {
-                    isLowHealth = true;
-                    StartCoroutine(PulseOverlay());
-                }
+                isCritical = true;
+                SetOverlayAlpha(lowHealthAlpha);
             }
-            else
+            else if (isCritical)
             {
-                isLowHealth = false;
-                damageOverlay.color = new Color(1, 0, 0, 0);
+                isCritical = false;
+                SetOverlayAlpha(0f);
             }
         }
     }
 
     IEnumerator FadeRoutine()
     {
-        // Fade in
+        // fade in de la barre (PAS du rouge)
         while (canvasGroup.alpha < 1f)
         {
             canvasGroup.alpha += Time.deltaTime * fadeSpeed;
@@ -81,7 +110,7 @@ public class HealthBarUI : MonoBehaviour
 
         yield return new WaitForSeconds(visibleDuration);
 
-        // Fade out
+        // fade out (le rouge reste actif)
         while (canvasGroup.alpha > 0f)
         {
             canvasGroup.alpha -= Time.deltaTime * fadeSpeed;
@@ -89,17 +118,31 @@ public class HealthBarUI : MonoBehaviour
         }
     }
 
-    IEnumerator PulseOverlay()
+    IEnumerator FlashOverlay()
     {
-        while (isLowHealth)
+        // 💥 flash rouge rapide 0.5s
+        float timer = 0f;
+        while (timer < flashDuration)
         {
-            float alpha = 0.25f + Mathf.PingPong(Time.time * pulseSpeed, 0.25f); // clignotement doux entre 0.25–0.5
-            damageOverlay.color = new Color(1f, 0f, 0f, alpha);
+            float alpha = Mathf.Lerp(0.6f, 0f, timer / flashDuration);
+            SetOverlayAlpha(alpha);
+            timer += Time.deltaTime;
             yield return null;
         }
 
-        // Quand on sort du mode blessé → cache l’overlay
-        damageOverlay.color = new Color(1, 0, 0, 0);
+        // si pas critique → revient à normal
+        if (!isCritical)
+            SetOverlayAlpha(0f);
+    }
+
+    void SetOverlayAlpha(float alpha)
+    {
+        if (damageOverlay != null)
+        {
+            Color c = damageOverlay.color;
+            c.a = alpha;
+            damageOverlay.color = c;
+        }
     }
 
     void ShowTemporarily()
@@ -107,5 +150,18 @@ public class HealthBarUI : MonoBehaviour
         if (fadeRoutine != null)
             StopCoroutine(fadeRoutine);
         fadeRoutine = StartCoroutine(FadeRoutine());
+    }
+
+    public void UpdateHealthBar(float current, float max)
+    {
+        if (fillImage == null) return;
+
+        float fill = Mathf.Clamp01(current / max);
+
+        // si ta barre utilise un RectMask2D → scale
+        fillImage.rectTransform.localScale = new Vector3(fill, 1f, 1f);
+
+        if (healthText != null)
+            healthText.text = $"{Mathf.CeilToInt(current)}/{Mathf.CeilToInt(max)}";
     }
 }
