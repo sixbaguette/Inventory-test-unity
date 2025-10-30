@@ -138,8 +138,18 @@ public class InventoryManager : MonoBehaviour
     {
         if (source == null || target == null) return false;
         if (source.itemData == null || target.itemData == null) return false;
-        if (!source.itemData.isStackable || !target.itemData.isStackable) return false;
-        if (!source.itemData.IsSameType(target.itemData)) return false;
+        Debug.Log($"[TryMergeStacks] Source={source.itemData.itemName} ({source.itemData.prefabName}) / Target={target.itemData.itemName} ({target.itemData.prefabName})");
+        if (!source.itemData.isStackable || !target.itemData.isStackable)
+        {
+            Debug.Log("  ❌ Un des deux n'est pas stackable.");
+            return false;
+        }
+
+        if (!source.itemData.IsSameType(target.itemData))
+        {
+            Debug.Log("  ❌ IsSameType retourne FALSE !");
+            return false;
+        }
 
         int spaceLeft = target.itemData.maxStack - target.currentStack;
         if (spaceLeft <= 0) return false;
@@ -691,5 +701,27 @@ public class InventoryManager : MonoBehaviour
 
         Debug.Log($"[ShiftClick] {ui.itemData.itemName} déplacé vers conteneur ({pos.Value.x},{pos.Value.y})");
         return true;
+    }
+
+    public List<ItemUI> GetAllItemUIs()
+    {
+        var result = new List<ItemUI>();
+
+        // 1) La liste logique (la source de vérité)
+        foreach (var ui in inventoryItems)
+            if (ui != null) result.Add(ui);
+
+        // 2) Sécurité : balaye le itemsLayer au cas où
+        if (itemsLayer != null)
+        {
+            for (int i = 0; i < itemsLayer.childCount; i++)
+            {
+                var ui = itemsLayer.GetChild(i).GetComponent<ItemUI>();
+                if (ui != null && !result.Contains(ui))
+                    result.Add(ui);
+            }
+        }
+
+        return result;
     }
 }

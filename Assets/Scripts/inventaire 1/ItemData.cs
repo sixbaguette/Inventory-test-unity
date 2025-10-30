@@ -72,21 +72,40 @@ public class ItemData : ScriptableObject
 
     public bool IsSameType(ItemData other)
     {
-        if (other == null) return false;
-        if (ReferenceEquals(this, other)) return true;
+        if (other == null)
+        {
+            Debug.Log("  ⚠️ other == null");
+            return false;
+        }
 
-        // 1) clé forte si tu utilises prefabName
+        if (ReferenceEquals(this, other))
+        {
+            Debug.Log($"  ✅ Référence identique pour {itemName}");
+            return true;
+        }
+
         if (!string.IsNullOrEmpty(prefabName) && !string.IsNullOrEmpty(other.prefabName))
-            return prefabName == other.prefabName;
+        {
+            bool same = prefabName.Trim().ToLower() == other.prefabName.Trim().ToLower();
+            Debug.Log($"  🧩 Compare prefabName : {prefabName} vs {other.prefabName} → {(same ? "OK" : "NO")}");
+            if (same) return true;
+        }
 
-        // 2) munitions : même type de balle => même pile
         if (isAmmo && other.isAmmo)
-            return ammoType == other.ammoType;
+        {
+            bool sameType = ammoType == other.ammoType;
+            Debug.Log($"  🔫 Compare ammoType : {ammoType} vs {other.ammoType} → {(sameType ? "OK" : "NO")}");
+            if (sameType) return true;
+        }
 
-        // 3) fallback sûr par nom exact (si tu gardes des noms stricts)
         if (!string.IsNullOrEmpty(itemName) && !string.IsNullOrEmpty(other.itemName))
-            return string.Equals(itemName, other.itemName, System.StringComparison.Ordinal);
+        {
+            bool sameName = string.Equals(itemName, other.itemName, System.StringComparison.OrdinalIgnoreCase);
+            Debug.Log($"  🏷️ Compare itemName : {itemName} vs {other.itemName} → {(sameName ? "OK" : "NO")}");
+            if (sameName) return true;
+        }
 
+        Debug.Log("  ❌ Aucun critère n’a matché !");
         return false;
     }
 }

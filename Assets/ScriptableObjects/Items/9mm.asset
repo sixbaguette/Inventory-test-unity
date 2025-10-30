@@ -18,7 +18,7 @@ MonoBehaviour:
   icon: {fileID: 21300000, guid: 53293bb25a334a446bc064b77e357bae, type: 3}
   width: 2
   height: 1
-  isEquipable: 1
+  isEquipable: 0
   equipSlotType: 3
   worldPrefab: {fileID: 848554633087692977, guid: 9a4f7c2a834549640997e3aa9383f0e3, type: 3}
   isStackable: 1

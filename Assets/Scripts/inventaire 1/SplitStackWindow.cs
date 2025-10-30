@@ -79,70 +79,153 @@ public class SplitStackWindow : MonoBehaviour
             return;
         }
 
-        if (int.TryParse(inputField.text, out int amount))
+        if (!int.TryParse(inputField.text, out int amount))
         {
-            // ⚙️ Empêche un split invalide
-            amount = Mathf.Clamp(amount, 1, sourceItem.currentStack - 1);
+            Close();
+            return;
+        }
 
-            var inv = InventoryManager.Instance;
-            var data = sourceItem.itemData;
+        // borne : 1 .. currentStack-1
+        amount = Mathf.Clamp(amount, 1, sourceItem.currentStack - 1);
+        if (amount <= 0)
+        {
+            Close();
+            return;
+        }
 
-            // ✅ D’abord, on cherche une place libre normalement
-            bool placed = inv.FindFirstFreePosition(data, out int x, out int y);
+        var data = sourceItem.itemData;
+        if (data == null)
+        {
+            Close();
+            return;
+        }
 
-            // 🌀 Si aucune place dans l’orientation actuelle, tente la rotation inverse
-            if (!placed)
+        // ➜ Détermine la "même" origine que la source
+        bool fromPlayer = (sourceItem.Owner == ItemUI.ItemOwner.Player);
+        bool fromContainer = (sourceItem.Owner == ItemUI.ItemOwner.Container);
+
+        InventoryManager inv = null;
+        ContainerInventoryManager cont = null;
+
+        if (fromPlayer)
+        {
+            inv = InventoryManager.Instance;
+            if (inv == null) { Debug.LogWarning("[SplitStack] InventoryManager introuvable."); Close(); return; }
+        }
+        else if (fromContainer)
+        {
+            // 1) parent direct si possible
+            cont = sourceItem.GetComponentInParent<ContainerInventoryManager>();
+            // 2) sinon l'instance ouverte
+            if (cont == null) cont = ContainerUIController.Instance != null ? ContainerUIController.Instance.containerInv : null;
+            // 3) sinon cherche dans la scène (rare)
+            if (cont == null)
             {
-                int oldW = data.width;
-                int oldH = data.height;
-                data.width = oldH;
-                data.height = oldW;
-
-                placed = inv.FindFirstFreePosition(data, out x, out y);
-
-                if (placed)
+                var all = GameObject.FindObjectsByType<ContainerInventoryManager>(FindObjectsSortMode.None);
+                foreach (var c in all)
                 {
-                    // Ajuste la taille visuelle du nouvel item après rotation
-                    data.width = oldH;
-                    data.height = oldW;
+                    if (c == null) continue;
+                    if (sourceItem.transform.IsChildOf(c.transform) ||
+                        (c.GetComponentInParent<Canvas>() == sourceItem.GetComponentInParent<Canvas>()))
+                    {
+                        cont = c; break;
+                    }
                 }
-                else
-                {
-                    // revert si aucune place même pivoté
-                    data.width = oldW;
-                    data.height = oldH;
+            }
+            if (cont == null) { Debug.LogWarning("[SplitStack] ContainerInventoryManager introuvable."); Close(); return; }
+        }
+        else
+        {
+            // Fallback : essaie au moins de savoir où est l'UI
+            inv = sourceItem.GetComponentInParent<InventoryManager>();
+            cont = sourceItem.GetComponentInParent<ContainerInventoryManager>();
+            if (inv == null && cont == null)
+            {
+                Debug.LogWarning("[SplitStack] Impossible de déterminer la source du stack (aucun inventaire trouvé).");
+                Close();
+                return;
+            }
+            fromPlayer = inv != null;
+            fromContainer = cont != null;
+        }
 
-                    Debug.LogWarning("[Split] Inventaire plein, aucune place dans aucune orientation !");
+        // ➜ Réduit le stack d’origine
+        sourceItem.currentStack -= amount;
+        sourceItem.UpdateStackText();
+
+        // ➜ Crée le nouveau stack DANS LE MÊME INVENTAIRE
+        if (fromPlayer)
+        {
+            // instancie dans la couche Items du joueur
+            GameObject go = Instantiate(inv.itemUIPrefab, inv.itemsLayer != null ? inv.itemsLayer : inv.slotParent);
+            ItemUI newStack = go.GetComponent<ItemUI>();
+            newStack.Setup(data);
+            newStack.currentStack = amount;
+            newStack.UpdateStackText();
+            newStack.Owner = ItemUI.ItemOwner.Player;
+
+            // placement (position libre + rotation auto possible)
+            if (!inv.FindFirstFreePosition(data, out int x, out int y))
+            {
+                // Essaie auto-place (gère la rotation interne)
+                if (!inv.TryAutoPlace(newStack))
+                {
+                    // rollback si vraiment pas de place
+                    Destroy(go);
+                    sourceItem.currentStack += amount;
+                    sourceItem.UpdateStackText();
+                    Debug.LogWarning("[SplitStack] Inventaire joueur plein, split annulé.");
                     Close();
                     return;
                 }
             }
+            else
+            {
+                inv.PlaceItem(newStack, x, y);
+            }
 
-            // ✅ Réduit le stack d’origine
-            sourceItem.currentStack -= amount;
-            sourceItem.UpdateStackText();
-
-            // ✅ Crée le nouveau stack
-            GameObject go = Instantiate(inv.itemUIPrefab, inv.itemsLayer);
-            ItemUI newStack = go.GetComponent<ItemUI>();
-            newStack.Setup(sourceItem.itemData);
-            newStack.currentStack = amount;
-            newStack.UpdateStackText();
-
-            // ✅ Ajoute à la liste interne
             inv.AddToInventoryList(newStack);
-
-            // ✅ Place le nouvel item dans la grille
-            inv.PlaceItem(newStack, x, y);
-
-            // ✅ Ajuste son visuel à la bonne rotation
             newStack.UpdateSize();
             newStack.UpdateOutline();
             newStack.ResetVisualLayout();
+        }
+        else // fromContainer
+        {
+            // instancie dans la couche Items du container
+            GameObject go = Instantiate(cont.itemUIPrefab, cont.itemsLayer != null ? cont.itemsLayer : cont.slotParent);
+            ItemUI newStack = go.GetComponent<ItemUI>();
+            newStack.Setup(data);
+            newStack.currentStack = amount;
+            newStack.UpdateStackText();
+            newStack.Owner = ItemUI.ItemOwner.Container;
 
-            Debug.Log($"[Split] Nouveau stack de {amount} créé pour {sourceItem.itemData.itemName}");
+            // placement (position libre + rotation auto possible)
+            Vector2Int? pos = cont.FindFreeSpaceFor(data);
+            if (!pos.HasValue)
+            {
+                if (!cont.TryAutoPlace(newStack))
+                {
+                    // rollback si vraiment pas de place
+                    Destroy(go);
+                    sourceItem.currentStack += amount;
+                    sourceItem.UpdateStackText();
+                    Debug.LogWarning("[SplitStack] Conteneur plein, split annulé.");
+                    Close();
+                    return;
+                }
+            }
+            else
+            {
+                cont.PlaceItem(newStack, pos.Value.x, pos.Value.y);
+            }
+
+            cont.AddToInventoryList(newStack);
+            newStack.UpdateSize();
+            newStack.UpdateOutline();
+            newStack.ResetVisualLayout();
         }
 
+        Debug.Log($"[Split] Nouveau stack de {amount} créé pour {sourceItem.itemData.itemName} dans {(fromPlayer ? "l'inventaire joueur" : "le conteneur")}.");
         Close();
     }
 
@@ -150,5 +233,20 @@ public class SplitStackWindow : MonoBehaviour
     {
         gameObject.SetActive(false);
         sourceItem = null;
+    }
+}
+
+// 🔧 Helper pour afficher le chemin complet d'un transform
+public static class TransformExtensions
+{
+    public static string GetHierarchyPath(this Transform t)
+    {
+        string path = t.name;
+        while (t.parent != null)
+        {
+            t = t.parent;
+            path = t.name + "/" + path;
+        }
+        return path;
     }
 }

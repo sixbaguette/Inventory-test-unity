@@ -322,51 +322,61 @@ public class ContainerInventoryManager : MonoBehaviour
     public bool ShiftClickTransferToPlayer(ItemUI ui)
     {
         var inv = InventoryManager.Instance;
-
-        // Sécurités
-        AddIfMissing(ui);
-        inv?.AddToInventoryList(ui);
-
         if (ui == null || inv == null)
         {
             Debug.LogWarning("[ShiftClick] Inventaire joueur introuvable.");
             return false;
         }
 
-        // 1) Fusion immédiate vers TOUTES les piles compatibles du joueur
-        List<ItemUI> playerItems = new List<ItemUI>(inv.GetComponentsInChildren<ItemUI>(true));
-        foreach (var other in playerItems)
+        // ✅ On s'assure que l'item n'est plus compté comme appartenant au coffre
+        DetachWithoutDestroy(ui);
+        ui.Owner = ItemUI.ItemOwner.Player;
+
+        // 🧠 Anti-restack local : si l'item est déjà dans l'inventaire du joueur, on annule
+        if (ui.transform.IsChildOf(inv.itemsLayer))
         {
-            if (ui == null) return true;                 // ui peut avoir été détruit par TryMergeStacks
-            if (other == null || other == ui) continue;
+            Debug.Log("[ShiftClick] Item déjà dans l'inventaire → on ne fusionne pas localement.");
+            return false;
+        }
+
+        // 1️⃣ Fusion immédiate vers toutes les piles compatibles du joueur
+        var allPlayerItems = inv.GetAllItemUIs();
+        foreach (var other in allPlayerItems)
+        {
+            if (ui == null || other == null || other == ui) continue;
             if (other.itemData == null || ui.itemData == null) continue;
             if (!other.itemData.isStackable) continue;
             if (!other.itemData.IsSameType(ui.itemData)) continue;
 
-            inv.TryMergeStacks(ui, other);
+            bool merged = inv.TryMergeStacks(ui, other);
+            if (merged)
+            {
+                Debug.Log($"[ShiftClick] Fusion immédiate réussie pour {ui.itemData.itemName}");
 
-            if (ui == null || ui.currentStack <= 0)      // vidé/détruit pendant la fusion
-                return true;
+                if (ui.currentStack <= 0)
+                {
+                    Debug.Log($"[ShiftClick] {ui.itemData.itemName} stack vidé, suppression côté container.");
+                    RemoveItem(ui);
+                    Destroy(ui.gameObject);
+                    return true;
+                }
+            }
         }
 
-        // 2) Cherche une place libre dans la grille du joueur
+        // 2️⃣ Trouve une place libre dans la grille du joueur
         if (!inv.FindFirstFreePosition(ui.itemData, out int px, out int py))
         {
             Debug.Log("[ShiftClick] Inventaire joueur plein.");
             return false;
         }
 
-        // 3) Déplace visuellement et logiquement l’item
-        ui.Owner = ItemUI.ItemOwner.Player;
-        DetachWithoutDestroy(ui);
+        // 3️⃣ Déplace visuellement et logiquement l’item
         ui.transform.SetParent(inv.itemsLayer != null ? inv.itemsLayer : inv.slotParent, false);
-
         bool placed = inv.PlaceItem(ui, px, py);
         if (!placed)
         {
-            TryAutoPlace(ui);
-            AddToInventoryList(ui);
-            return false;
+            Debug.LogWarning("[ShiftClick] Placement échoué, tentative auto-place...");
+            inv.TryAutoPlace(ui);
         }
 
         inv.AddToInventoryList(ui);
@@ -376,12 +386,11 @@ public class ContainerInventoryManager : MonoBehaviour
 
         Debug.Log($"[ShiftClick] {ui.itemData.itemName} déplacé vers inventaire joueur ({px},{py})");
 
-        // 4) Fusion post-placement (réutilise la même liste, sans la redéclarer)
-        playerItems = new List<ItemUI>(inv.GetComponentsInChildren<ItemUI>(true)); // on réassigne, pas de "var" ici
-        foreach (var other in playerItems)
+        // 4️⃣ Fusion post-placement
+        allPlayerItems = inv.GetAllItemUIs();
+        foreach (var other in allPlayerItems)
         {
-            if (ui == null) return true;                 // peut avoir été détruit
-            if (other == null || other == ui) continue;
+            if (ui == null || other == null || other == ui) continue;
             if (other.itemData == null || ui.itemData == null) continue;
             if (!other.itemData.isStackable) continue;
             if (!other.itemData.IsSameType(ui.itemData)) continue;
@@ -389,12 +398,46 @@ public class ContainerInventoryManager : MonoBehaviour
             bool merged = inv.TryMergeStacks(ui, other);
             if (merged)
             {
-                Debug.Log($"[ShiftClick] Fusion post-placement réussie pour {other.itemData.itemName}");
-                if (ui == null || ui.currentStack <= 0)  // vidé/détruit pendant la fusion
+                Debug.Log($"[ShiftClick] Fusion post-placement réussie pour {ui.itemData.itemName}");
+
+                if (ui.currentStack <= 0)
+                {
+                    Debug.Log($"[ShiftClick] Stack vidé après post-fusion, suppression côté container.");
+                    RemoveItem(ui);
+                    Destroy(ui.gameObject);
                     return true;
+                }
             }
         }
 
         return true;
+    }
+
+    // 🔍 Trouve la première position libre où placer un item
+    public bool FindFirstFreePosition(ItemData item, out int outX, out int outY)
+    {
+        outX = -1;
+        outY = -1;
+
+        if (item == null || slots == null)
+            return false;
+
+        int width = item.width;
+        int height = item.height;
+
+        for (int y = 0; y < this.height; y++)
+        {
+            for (int x = 0; x < this.width; x++)
+            {
+                if (CanPlaceItem(x, y, item))
+                {
+                    outX = x;
+                    outY = y;
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

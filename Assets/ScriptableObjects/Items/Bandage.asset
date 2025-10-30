@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Bandage
   m_EditorClassIdentifier: 
   itemName: Bandage
-  prefabName: bandage
+  prefabName: Bandage
   description: un Bandage
   icon: {fileID: 21300000, guid: 58ef2d2b236b4204db705b7d063edbe6, type: 3}
   width: 2
@@ -24,3 +24,18 @@ MonoBehaviour:
   isStackable: 1
   maxStack: 10
   worldStackMode: 1
+  isGun: 0
+  damage: 0
+  fireRate: 0
+  reloadTime: 0
+  bulletSpeed: 0
+  ammoCapacity: 0
+  aimSpeed: 0
+  bulletType: 0
+  isAmmo: 0
+  ammoType: 0
+  bulletPrefab: {fileID: 0}
+  fireSound: {fileID: 0}
+  reloadSound: {fileID: 0}
+  emptyClickSound: {fileID: 0}
+  muzzleFlash: {fileID: 0}
