@@ -25,10 +25,12 @@ public class HealingItemHandler : MonoBehaviour
     {
         if (playerHealth == null)
         {
-            // ✅ cherche le HealthManager sur le joueur local
-            playerHealth = FindFirstObjectByType<HealthManager>();
+            var player = GameObject.FindGameObjectWithTag("Player");
+            if (player != null)
+                playerHealth = player.GetComponentInChildren<HealthManager>();
+
             if (playerHealth == null)
-                Debug.LogError("[HealingItemHandler] Aucun HealthManager trouvé dans la scène !");
+                Debug.LogError("[HealingItemHandler] Aucun HealthManager trouvé sur le Player !");
         }
 
         if (healUI != null)
@@ -44,6 +46,10 @@ public class HealingItemHandler : MonoBehaviour
 
     void Update()
     {
+        // 🚫 Empêche l'utilisation du bandage pendant que l'inventaire est ouvert
+        if (InventoryToggle.IsInventoryOpen)
+            return;
+
         currentItem = GetCurrentEquippedItem();
         if (currentItem == null || !currentItem.isHealingItem)
             return;

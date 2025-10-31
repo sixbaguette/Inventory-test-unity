@@ -34,11 +34,8 @@ public class HealthBarUI : MonoBehaviour
 
     void Start()
     {
-        healthManager = FindFirstObjectByType<HealthManager>();
-
         if (canvasGroup == null)
             canvasGroup = GetComponent<CanvasGroup>();
-
         canvasGroup.alpha = 0;
 
         if (fillImage != null)
@@ -47,7 +44,14 @@ public class HealthBarUI : MonoBehaviour
         if (damageOverlay != null)
             damageOverlay.color = new Color(1, 0, 0, 0);
 
-        if (healthManager != null)
+        // 🔒 lie la barre au HealthManager DU JOUEUR
+        var player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+            healthManager = player.GetComponentInChildren<HealthManager>();
+
+        if (healthManager == null)
+            Debug.LogError("[HealthBarUI] Aucun HealthManager sur le Player !");
+        else
             lastHealth = healthManager.CurrentHealth;
     }
 

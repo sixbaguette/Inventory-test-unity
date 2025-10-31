@@ -24,3 +24,24 @@ MonoBehaviour:
   isStackable: 0
   maxStack: 1
   worldStackMode: 1
+  isGun: 0
+  damage: 0
+  fireRate: 0
+  reloadTime: 0
+  bulletSpeed: 0
+  ammoCapacity: 0
+  aimSpeed: 0
+  bulletType: 0
+  isAmmo: 0
+  ammoType: 0
+  bulletPrefab: {fileID: 0}
+  fireSound: {fileID: 0}
+  reloadSound: {fileID: 0}
+  emptyClickSound: {fileID: 0}
+  muzzleFlash: {fileID: 0}
+  isHealingItem: 0
+  healAmount: 25
+  useTime: 3
+  isArmor: 1
+  armorValue: 40
+  armorSlotType: 6

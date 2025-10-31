@@ -1906,6 +1906,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   partType: 3
+  headMultiplier: 2
+  torsoMultiplier: 1
+  legMultiplier: 0.8
 --- !u!65 &240738762
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -2551,6 +2554,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   partType: 1
+  headMultiplier: 2
+  torsoMultiplier: 1
+  legMultiplier: 0.8
 --- !u!65 &380340416
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -3356,6 +3362,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   partType: 3
+  headMultiplier: 2
+  torsoMultiplier: 1
+  legMultiplier: 0.8
 --- !u!65 &475339369
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -3558,6 +3567,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   partType: 3
+  headMultiplier: 2
+  torsoMultiplier: 1
+  legMultiplier: 0.8
 --- !u!65 &514058388
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -4155,6 +4167,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   partType: 3
+  headMultiplier: 2
+  torsoMultiplier: 1
+  legMultiplier: 0.8
 --- !u!65 &568594632
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -4277,6 +4292,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   partType: 3
+  headMultiplier: 2
+  torsoMultiplier: 1
+  legMultiplier: 0.8
 --- !u!65 &572248966
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -4607,6 +4625,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   partType: 3
+  headMultiplier: 2
+  torsoMultiplier: 1
+  legMultiplier: 0.8
 --- !u!65 &603495684
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -6275,6 +6296,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   partType: 0
+  headMultiplier: 2
+  torsoMultiplier: 1
+  legMultiplier: 0.8
 --- !u!135 &820456869
 SphereCollider:
   m_ObjectHideFlags: 0
@@ -6747,6 +6771,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   partType: 3
+  headMultiplier: 2
+  torsoMultiplier: 1
+  legMultiplier: 0.8
 --- !u!65 &929424476
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -10028,6 +10055,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   partType: 3
+  headMultiplier: 2
+  torsoMultiplier: 1
+  legMultiplier: 0.8
 --- !u!65 &1175808618
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -10512,6 +10542,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   partType: 3
+  headMultiplier: 2
+  torsoMultiplier: 1
+  legMultiplier: 0.8
 --- !u!65 &1247139827
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -10824,6 +10857,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxHealth: 100
   currentHealth: 0
+--- !u!114 &1309296096
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1309296084}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b50baed4087c8054897316fdb93ab362, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  equipementManager: {fileID: 1095856292}
+  healthManager: {fileID: 1309296095}
+  minDamageFactor: 0.05
 --- !u!1 &1309334418
 GameObject:
   m_ObjectHideFlags: 0
@@ -10872,6 +10920,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   partType: 1
+  headMultiplier: 2
+  torsoMultiplier: 1
+  legMultiplier: 0.8
 --- !u!65 &1309334421
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -11371,6 +11422,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   partType: 0
+  headMultiplier: 2
+  torsoMultiplier: 1
+  legMultiplier: 0.8
 --- !u!135 &1352432251
 SphereCollider:
   m_ObjectHideFlags: 0
@@ -13511,6 +13565,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   partType: 3
+  headMultiplier: 2
+  torsoMultiplier: 1
+  legMultiplier: 0.8
 --- !u!65 &1625914966
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -13669,6 +13726,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   partType: 1
+  headMultiplier: 2
+  torsoMultiplier: 1
+  legMultiplier: 0.8
 --- !u!65 &1653334006
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -15382,6 +15442,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   partType: 1
+  headMultiplier: 2
+  torsoMultiplier: 1
+  legMultiplier: 0.8
 --- !u!65 &1896833944
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -15566,6 +15629,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   partType: 3
+  headMultiplier: 2
+  torsoMultiplier: 1
+  legMultiplier: 0.8
 --- !u!65 &1959119642
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -15866,6 +15932,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   partType: 3
+  headMultiplier: 2
+  torsoMultiplier: 1
+  legMultiplier: 0.8
 --- !u!65 &2051164001
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -17118,6 +17187,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 151977916258747509, guid: 88359afaed857134d9db8ca3b4e8d521, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1309296095}
+    - targetCorrespondingSourceObject: {fileID: 151977916258747509, guid: 88359afaed857134d9db8ca3b4e8d521, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1309296096}
   m_SourcePrefab: {fileID: 100100000, guid: 88359afaed857134d9db8ca3b4e8d521, type: 3}
 --- !u!1001 &8344434565522493961
 PrefabInstance:

@@ -75,6 +75,11 @@ public class ItemData : ScriptableObject
     public float healAmount = 25f;    // combien de HP sont rendus
     public float useTime = 3f;        // durée d’utilisation en secondes
 
+    [Header("Armor Settings")]
+    public bool isArmor;
+    public float armorValue = 0f;  // puissance de réduction
+    public EquipSlotType armorSlotType; // où se met l’armure : Helmet, Armor, Legging, etc.
+
     public bool IsSameType(ItemData other)
     {
         if (other == null)

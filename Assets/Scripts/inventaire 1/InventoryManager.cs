@@ -465,6 +465,13 @@ public class InventoryManager : MonoBehaviour
 
         ItemData data = itemUI.itemData;
 
+        // 0️⃣ PRIORITÉ ABSOLUE : si une pile identique est déjà ÉQUIPÉE → fusionne dedans
+        if (data.isStackable && EquipementManager.Instance != null)
+        {
+            if (EquipementManager.Instance.TryMergeIntoEquipment(itemUI))
+                return; // merge complet OU partiel : on s'arrête là
+        }
+
         // 🧭 Vérifie si l'item est actuellement dans un slot d'équipement
         bool isInEquipment = EquipementManager.Instance.equipSlots != null &&
                              System.Array.Exists(EquipementManager.Instance.equipSlots,
@@ -475,12 +482,15 @@ public class InventoryManager : MonoBehaviour
         {
             EquipementManager.Instance.UnequipItem(itemUI);
 
-            if (InventoryAudioManager.Instance != null)
-            {
-                InventoryAudioManager.Instance.Play("close_inventory"); // ou un son de "range / holster"
-            }
+            // 🧩 Déséquipe aussi visuellement (supprime le prefab de la main)
+            var equipHandler = FindFirstObjectByType<PlayerEquipHandler>();
+            if (equipHandler != null)
+                equipHandler.UnequipAll();
 
-            Debug.Log($"[QuickTransfer] {data.itemName} retiré de l'équipement via Shift + Clic.");
+            if (InventoryAudioManager.Instance != null)
+                InventoryAudioManager.Instance.Play("close_inventory");
+
+            Debug.Log($"[QuickTransfer] {data.itemName} retiré de l'équipement via Shift + Clic (et visuellement déséquipé).");
             return;
         }
 
@@ -618,6 +628,13 @@ public class InventoryManager : MonoBehaviour
     // Shift+clic depuis l'inventaire joueur -> conteneur OU1 (ouvert)
     public bool ShiftClickTransferToOpenContainer(ItemUI ui)
     {
+        // 0️⃣ PRIORITÉ : tenter de fusionner dans un slot d'équipement déjà occupé
+        if (ui.itemData != null && ui.itemData.isStackable && EquipementManager.Instance != null)
+        {
+            if (EquipementManager.Instance.TryMergeIntoEquipment(ui))
+                return true; // merge fait → on ne touche pas au conteneur
+        }
+
         var cont = ContainerUIController.Instance?.GetActiveContainerInventory();
         // 🧠 Sécurité : assure que les deux listes sont à jour
         AddToInventoryList(ui);

@@ -25,56 +25,62 @@ public class EquipementManager : MonoBehaviour
     /// </summary>
     public bool TryEquipItem(ItemUI itemUI)
     {
-        if (itemUI == null || itemUI.itemData == null)
-            return false;
+        if (itemUI == null || itemUI.itemData == null) return false;
+        var data = itemUI.itemData;
 
-        ItemData data = itemUI.itemData;
+        // 0) PRIORITÉ : si stackable → tenter de fusionner dans un stack déjà équipé
+        if (data.isStackable)
+        {
+            bool merged = TryMergeIntoEquipment(itemUI);
+            if (merged)
+            {
+                // si la source a été vidée, on a terminé
+                if (itemUI == null || itemUI.currentStack <= 0) return true;
+                // sinon, on continue (peut rester du reste à équiper)
+            }
+        }
 
-        // 1️⃣ On ne traite que les objets équipables
+        // 1) Si pas d’équipement possible pour ce type → stop
         if (!data.isEquipable)
         {
             Debug.Log($"[Equip] {data.itemName} n’est pas équipable.");
             return false;
         }
 
-        // 2️⃣ Recherche d’un slot compatible libre
-        EquipementSlot slot = equipSlots
-            .FirstOrDefault(s => s != null && s.IsCompatible(data) && s.CurrentItem == null);
-
+        // 2) Cherche un slot compatible LIBRE
+        var slot = equipSlots.FirstOrDefault(s => s != null && s.IsCompatible(data) && s.CurrentItem == null);
         if (slot == null)
         {
-            Debug.Log($"[Equip] Aucun slot compatible ou libre pour {data.itemName} !");
+            Debug.Log($"[Equip] Aucun slot compatible libre pour {data.itemName} (après tentative de merge).");
             UIEffects.Shake(itemUI.rectTransform);
             return false;
         }
 
-        // 🔧 IMPORTANT : libère les anciens slots d’inventaire (sinon ils restent marqués comme occupés)
+        // 3) Libère les anciens slots d’inventaire
         if (itemUI.occupiedSlots != null)
         {
             foreach (var s in itemUI.occupiedSlots)
-                if (s != null)
-                    s.ClearItem();
+                s?.ClearItem();
         }
         itemUI.occupiedSlots = null;
         itemUI.currentSlot = null;
 
-        // 🔖 Retire proprement de la liste d'inventaire (logique)
+        // 4) Retire proprement de la liste inventaire
         InventoryManager.Instance?.DetachWithoutDestroy(itemUI);
 
-        // 3️⃣ Équipe dans ce slot
+        // 5) Équipe via OnDrop (garde toute ta logique visuelle)
         slot.OnDrop(new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current)
         {
             pointerDrag = itemUI.gameObject
         });
 
-        // 🔊 Sons
+        // 6) Sons (inchangé)
         if (data.equipSlotType == EquipSlotType.Primary || data.equipSlotType == EquipSlotType.Secondary)
             InventoryAudioManager.Instance.Play("equip_weapon");
         else if (data.equipSlotType == EquipSlotType.Armor || data.equipSlotType == EquipSlotType.Helmet || data.equipSlotType == EquipSlotType.Legging)
             InventoryAudioManager.Instance.Play("equip_armor");
 
-        // ✅ Met à jour la propriété Owner (suivi logique)
-        itemUI.Owner = ItemOwner.Equipment;
+        itemUI.Owner = ItemUI.ItemOwner.Equipment;
 
         Debug.Log($"[Equip] {data.itemName} équipé dans {slot.name}");
         return true;
@@ -84,7 +90,6 @@ public class EquipementManager : MonoBehaviour
     {
         if (itemUI == null) return;
 
-        // Trouve le slot qui le contient
         var slot = equipSlots.FirstOrDefault(s => s != null && s.CurrentItem == itemUI);
         if (slot == null)
         {
@@ -92,12 +97,17 @@ public class EquipementManager : MonoBehaviour
             return;
         }
 
-        // 1️⃣ Déséquipe visuellement (le slot s’en charge)
+        // 1) Le slot vide l'UI
         slot.UnequipItem();
+
+        // 🧹 1bis) Toujours retirer le modèle tenu en main (pas seulement les guns)
+        var hotbar = FindFirstObjectByType<HotbarManager>();
+        if (hotbar != null && hotbar.playerEquipHandler != null)
+            hotbar.playerEquipHandler.UnequipAll();
 
         Debug.Log($"[Unequip] {itemUI.itemData.itemName} retiré du slot {slot.name}");
 
-        // 2️⃣ Replace l’objet dans l’inventaire joueur
+        // 2) Replace dans l'inventaire
         var inv = InventoryManager.Instance;
         if (inv != null)
         {
@@ -111,18 +121,6 @@ public class EquipementManager : MonoBehaviour
             else
             {
                 Debug.LogWarning("[Unequip] Inventaire plein, impossible de replacer l’item.");
-            }
-        }
-
-        // 3️⃣ Si c’était une arme → retirer visuellement
-        if (itemUI.itemData != null &&
-            (itemUI.itemData.equipSlotType == EquipSlotType.Primary || itemUI.itemData.equipSlotType == EquipSlotType.Secondary))
-        {
-            var hotbar = FindFirstObjectByType<HotbarManager>();
-            if (hotbar != null && hotbar.playerEquipHandler != null)
-            {
-                hotbar.playerEquipHandler.UnequipAll();
-                Debug.Log("[EquipementManager] Arme retirée visuellement du joueur");
             }
         }
     }
@@ -159,5 +157,72 @@ public class EquipementManager : MonoBehaviour
         // pas de place -> on peut échouer (ou dropper si tu veux)
         Debug.LogWarning("[Equipement] Inventaire plein, impossible de replacer l’item déséquipé.");
         return false;
+    }
+
+    public bool TryMergeIntoEquipment(ItemUI source)
+    {
+        if (source == null || source.itemData == null) return false;
+        if (!source.itemData.isStackable) return false;
+        if (equipSlots == null || equipSlots.Length == 0) return false;
+
+        bool merged = false;
+
+        foreach (var eq in equipSlots)
+        {
+            if (eq == null || eq.CurrentItem == null) continue;
+
+            var equipped = eq.CurrentItem;
+            if (equipped.itemData == null || !equipped.itemData.isStackable) continue;
+
+            // Comparaison tolérante
+            bool sameType =
+                equipped.itemData == source.itemData ||
+                equipped.itemData.IsSameType(source.itemData) ||
+                equipped.itemData.itemName == source.itemData.itemName ||
+                (!string.IsNullOrEmpty(equipped.itemData.prefabName) &&
+                 equipped.itemData.prefabName == source.itemData.prefabName);
+
+            if (!sameType) continue;
+
+            int space = equipped.itemData.maxStack - equipped.currentStack;
+            if (space <= 0) continue;
+
+            int moved = Mathf.Min(space, source.currentStack);
+            if (moved <= 0) continue;
+
+            equipped.currentStack += moved;
+            equipped.UpdateStackText();
+
+            source.currentStack -= moved;
+            source.UpdateStackText();
+
+            // rafraîchit le visuel du slot d’équipement
+            eq.ForceRefreshVisual(equipped);
+
+            Debug.Log($"[EquipMerge] +{moved} dans {eq.name} ({equipped.currentStack}/{equipped.itemData.maxStack})");
+            merged = true;
+
+            if (source.currentStack <= 0)
+            {
+                // pile source finie → on la supprime de l’inventaire
+                InventoryManager.Instance.RemoveItem(source);
+                break;
+            }
+        }
+
+        return merged;
+    }
+
+    public void DebugPrintEquipment()
+    {
+        Debug.Log("=== Equipment Debug ===");
+        if (equipSlots == null) { Debug.Log("equipSlots = null"); return; }
+        for (int i = 0; i < equipSlots.Length; i++)
+        {
+            var s = equipSlots[i];
+            var it = s != null ? s.CurrentItem : null;
+            string txt = it == null ? "(vide)" : $"{it.itemData?.itemName} x{it.currentStack}";
+            Debug.Log($"Slot[{i}] {(s ? s.name : "<null>")} -> {txt}");
+        }
     }
 }
