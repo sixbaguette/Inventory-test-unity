@@ -80,6 +80,12 @@ public class ItemData : ScriptableObject
     public float armorValue = 0f;  // puissance de réduction
     public EquipSlotType armorSlotType; // où se met l’armure : Helmet, Armor, Legging, etc.
 
+    [Header("Melee Settings")]
+    public bool isMeleeWeapon = false;
+    public float meleeDamage = 25f;
+    public float attackRange = 2f;
+    public float attackSpeed = 1f; // coups par seconde
+
     public bool IsSameType(ItemData other)
     {
         if (other == null)

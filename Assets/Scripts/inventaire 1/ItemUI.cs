@@ -422,9 +422,9 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        if (isBeingDragged) return; // ne rien faire pendant drag
+        if (isBeingDragged) return;
 
-        // === FOND JAUNE ===
+        // === Hover visuals (comme avant)
         if (hoverBackground != null)
         {
             hoverBackground.rectTransform.sizeDelta = rectTransform.sizeDelta;
@@ -444,18 +444,22 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             LeanTween.scale(hoverBackground.rectTransform, Vector3.one * hoverScale, hoverFadeTime).setEaseOutCubic();
         }
 
-        // === OUTLINE ===
         if (outline != null)
         {
             LeanTween.cancel(outline.gameObject);
             LeanTween.scale(outline.rectTransform, Vector3.one * hoverScale, hoverFadeTime).setEaseOutCubic();
         }
+
+        // === Tooltip rapide ===
+        if (InventoryToggle.IsInventoryOpen && MiniTooltipUI.Instance != null)
+            MiniTooltipUI.Instance.Show(itemData);
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
         if (isBeingDragged) return;
 
+        // === Hover visuals reset ===
         if (hoverBackground != null)
         {
             LeanTween.cancel(hoverBackground.gameObject);
@@ -475,6 +479,10 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             LeanTween.cancel(outline.gameObject);
             LeanTween.scale(outline.rectTransform, Vector3.one, hoverFadeTime).setEaseInCubic();
         }
+
+        // === Cache mini tooltip ===
+        if (MiniTooltipUI.Instance != null)
+            MiniTooltipUI.Instance.Hide();
     }
 
     private ItemUI GetItemUnderMouse()

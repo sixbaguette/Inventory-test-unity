@@ -209,16 +209,23 @@ public class EquipementSlot : MonoBehaviour, IDropHandler
         currentItem = null;
         if (iconDisplay != null) iconDisplay.enabled = true;
 
-        // 2) Retire l’arme/équipement visible du joueur (si nécessaire)
+        // 🔥 FORCER la désinstanciation SI cet item est en main
         var hotbar = FindFirstObjectByType<HotbarManager>();
         if (hotbar != null && hotbar.playerEquipHandler != null)
-            hotbar.playerEquipHandler.UnequipAll();
+        {
+            hotbar.playerEquipHandler.UnequipIfHolding(itemToDrop.itemData);
+        }
+        else
+        {
+            // fallback si jamais pas de handler
+            var peh = FindFirstObjectByType<PlayerEquipHandler>();
+            if (peh != null) peh.UnequipIfHolding(itemToDrop.itemData);
+        }
 
-        // 3) Reparent vers l’inventaire + enregistre-le dans la liste logique
+        // 3) Reparent vers l’inventaire + enregistre-le (comme tu fais déjà)
         var inv = InventoryManager.Instance;
         if (inv != null && inv.itemsLayer != null)
         {
-            // enlève toute empreinte d’occupation (au cas où)
             if (itemToDrop.occupiedSlots != null)
             {
                 foreach (var s in itemToDrop.occupiedSlots) s?.ClearItem();
@@ -226,15 +233,11 @@ public class EquipementSlot : MonoBehaviour, IDropHandler
             itemToDrop.currentSlot = null;
             itemToDrop.occupiedSlots = null;
 
-            // reparent dans la couche d’items
             itemToDrop.transform.SetParent(inv.itemsLayer, false);
             inv.AddToInventoryList(itemToDrop);
-
-            // optionnel: on le place quelque part, mais pas obligatoire pour le drop
-            // (on évite les repositionnements inutiles)
         }
 
-        // 4) Drop via le système habituel (détruira l’UI et enlèvera de l’inventaire)
+        // 4) Drop via système habituel
         var ppm = FindFirstObjectByType<PlayerPickupManager>();
         if (ppm != null)
         {
@@ -254,22 +257,19 @@ public class EquipementSlot : MonoBehaviour, IDropHandler
     /// </summary>
     public void ForceClearSlot()
     {
-        if (currentItem == null)
-            return;
+        if (currentItem == null) return;
 
-        // Supprime la référence
         ItemUI itemToDestroy = currentItem;
         currentItem = null;
 
-        // Restaure l’icône du slot
-        if (iconDisplay != null)
-            iconDisplay.enabled = true;
+        if (iconDisplay != null) iconDisplay.enabled = true;
 
-        // Détruit l’objet UI (il a déjà été droppé au sol)
+        // 🔥 s'assure que le visuel correspondant disparaît
+        var peh = FindFirstObjectByType<PlayerEquipHandler>();
+        if (peh != null) peh.UnequipIfHolding(itemToDestroy.itemData);
+
         if (itemToDestroy != null)
-        {
             Destroy(itemToDestroy.gameObject);
-        }
 
         Debug.Log("[EquipementSlot] Slot vidé sans retour inventaire.");
     }

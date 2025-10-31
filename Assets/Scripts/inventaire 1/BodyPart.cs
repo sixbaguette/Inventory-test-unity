@@ -20,8 +20,15 @@ public class BodyPart : MonoBehaviour
         armorManager = GetComponentInParent<ArmorManager>();
         healthManager = GetComponentInParent<HealthManager>();
 
-        if (armorManager == null)
+        if (armorManager == null && Application.isPlaying)
+        {
+            // Ignorer si ce n’est pas dans le joueur
+            if (!transform.root.CompareTag("Player"))
+                return;
+
             Debug.LogWarning($"[BodyPart:{name}] Aucun ArmorManager trouvé sur le parent !");
+        }
+
         if (healthManager == null)
             Debug.LogWarning($"[BodyPart:{name}] Aucun HealthManager trouvé sur le parent !");
     }

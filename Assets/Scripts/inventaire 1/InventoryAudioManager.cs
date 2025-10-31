@@ -26,6 +26,12 @@ public class InventoryAudioManager : MonoBehaviour
             return;
         }
         Instance = this;
+
+        // S'assure d'être root avant de rendre persistant
+        if (transform.parent != null)
+        {
+            transform.SetParent(null); // détache du parent
+        }
         DontDestroyOnLoad(gameObject);
 
         audioSource = gameObject.AddComponent<AudioSource>();

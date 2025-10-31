@@ -97,13 +97,15 @@ public class EquipementManager : MonoBehaviour
             return;
         }
 
-        // 1) Le slot vide l'UI
+        // 1) Vide le slot
         slot.UnequipItem();
 
-        // 🧹 1bis) Toujours retirer le modèle tenu en main (pas seulement les guns)
+        // 🔥 Forcer la désinstanciation si cet item est en main
         var hotbar = FindFirstObjectByType<HotbarManager>();
         if (hotbar != null && hotbar.playerEquipHandler != null)
-            hotbar.playerEquipHandler.UnequipAll();
+            hotbar.playerEquipHandler.UnequipIfHolding(itemUI.itemData);
+        else
+            FindFirstObjectByType<PlayerEquipHandler>()?.UnequipIfHolding(itemUI.itemData);
 
         Debug.Log($"[Unequip] {itemUI.itemData.itemName} retiré du slot {slot.name}");
 
@@ -224,5 +226,17 @@ public class EquipementManager : MonoBehaviour
             string txt = it == null ? "(vide)" : $"{it.itemData?.itemName} x{it.currentStack}";
             Debug.Log($"Slot[{i}] {(s ? s.name : "<null>")} -> {txt}");
         }
+    }
+
+    public ItemData GetEquippedMeleeWeapon()
+    {
+        foreach (var slot in equipSlots)
+        {
+            if (slot?.CurrentItem == null) continue;
+            var data = slot.CurrentItem.itemData;
+            if (data != null && data.isMeleeWeapon)
+                return data;
+        }
+        return null;
     }
 }

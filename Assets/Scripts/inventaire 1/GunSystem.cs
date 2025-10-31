@@ -59,6 +59,8 @@ public class GunSystem : MonoBehaviour
     public InventoryItem linkedItem; // référence à l'objet d'inventaire actif
     private MuzzleFlashController muzzleFlashController;
 
+    private CrosshairUI crosshair;
+
     void Awake()
     {
         enabled = false;
@@ -86,6 +88,7 @@ public class GunSystem : MonoBehaviour
             cameraTransform = playerCamera.transform;
         }
 
+        crosshair = FindFirstObjectByType<CrosshairUI>();
         muzzleFlashController = GetComponent<MuzzleFlashController>();
         // ❌ NE PAS initialiser currentAmmo ici,
         // il est défini dans EquipWeapon() (sinon reset du chargeur)
@@ -299,6 +302,12 @@ public class GunSystem : MonoBehaviour
         {
             float targetFOV = aiming ? aimFOV : normalFOV;
             playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, targetFOV, Time.deltaTime * fovTransitionSpeed);
+        }
+
+        // 🎯 Crosshair visible uniquement quand on ne vise pas
+        if (crosshair != null)
+        {
+            crosshair.SetVisible(!aiming);
         }
     }
 

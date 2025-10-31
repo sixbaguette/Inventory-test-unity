@@ -135,5 +135,8 @@ public class InventoryToggle : MonoBehaviour
         // 🔥 Si un conteneur est ouvert, on le ferme proprement
         if (ContainerUIController.Instance != null)
             ContainerUIController.Instance.CloseContainer();
+
+        if (MiniTooltipUI.Instance != null)
+            MiniTooltipUI.Instance.HideInstant();
     }
 }
