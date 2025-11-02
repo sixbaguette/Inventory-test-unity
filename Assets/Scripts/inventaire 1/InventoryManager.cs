@@ -72,8 +72,6 @@ public class InventoryManager : MonoBehaviour
         Debug.Log($"[InventoryManager] Grille initialisée ({width}x{height})");
     }
 
-
-
     public bool CanPlaceItem(int startX, int startY, ItemData item, ItemUI ignoreItemUI = null)
     {
         if (item == null) return false;
@@ -212,6 +210,10 @@ public class InventoryManager : MonoBehaviour
 
         ItemData item = itemUI.itemData;
 
+        if (itemUI.runtimeData == null)
+            itemUI.runtimeData = ScriptableObject.Instantiate(itemUI.itemData);
+        itemUI.itemData = itemUI.runtimeData;
+
         // 🧩 Clamp la position pour éviter les dépassements
         startX = Mathf.Clamp(startX, 0, width - item.width);
         startY = Mathf.Clamp(startY, 0, height - item.height);
@@ -344,7 +346,11 @@ public class InventoryManager : MonoBehaviour
     // Ajoute un item dans l'inventaire (instancie le prefab UI et place dans la première case libre)
     public bool AddItem(ItemData data, int quantity = 1)
     {
-        if (data == null) return false;
+        if (data == null)
+        {
+            Debug.LogError("[InventoryManager] AddItem appelé avec un ItemData NULL !");
+            return false;
+        }
 
         // 🧹 Nettoyage de sécurité : retire toute référence d'ItemUI détruit
         for (int i = inventoryItems.Count - 1; i >= 0; i--)
@@ -684,12 +690,35 @@ public class InventoryManager : MonoBehaviour
             }
         }
 
-        // 2️⃣ Trouve une position libre dans la grille du conteneur
+        // 2️⃣ Trouve une position libre dans la grille du conteneur (avec rotation auto)
         var pos = cont.FindFreeSpaceFor(ui.itemData);
         if (!pos.HasValue)
         {
-            Debug.Log("[ShiftClick] Pas d’espace libre dans le conteneur.");
-            return false;
+            // Essai rotation inverse
+            int oldW = ui.itemData.width;
+            int oldH = ui.itemData.height;
+            ui.itemData.width = oldH;
+            ui.itemData.height = oldW;
+
+            pos = cont.FindFreeSpaceFor(ui.itemData);
+
+            if (!pos.HasValue)
+            {
+                // ❌ revert si aucune place même après rotation
+                ui.itemData.width = oldW;
+                ui.itemData.height = oldH;
+
+                Debug.Log("[ShiftClick] Pas d’espace libre (même après rotation).");
+
+                if (UIMessage.Instance != null)
+                    UIMessage.Instance.Show("Le conteneur est plein !");
+                else
+                    Debug.LogWarning("[UIMessage] Instance manquante : impossible d’afficher le message.");
+
+                return false;
+            }
+
+            Debug.Log("[ShiftClick] Placement trouvé après rotation automatique.");
         }
 
         // ⚙️ 3️⃣ Déplace visuellement et logiquement l’item
@@ -740,5 +769,38 @@ public class InventoryManager : MonoBehaviour
         }
 
         return result;
+    }
+
+    public bool AddOrStackItem(ItemData data, int quantity)
+    {
+        if (data == null) return false;
+
+        // 🔎 Vérifie si une pile existante peut accueillir cet item
+        foreach (var existingUI in GetAllItemUIs())
+        {
+            if (existingUI == null || existingUI.itemData == null) continue;
+            if (!existingUI.itemData.isStackable) continue;
+            if (!existingUI.itemData.IsSameType(data)) continue;
+
+            int spaceLeft = existingUI.itemData.maxStack - existingUI.currentStack;
+            if (spaceLeft <= 0) continue;
+
+            int added = Mathf.Min(spaceLeft, quantity);
+            existingUI.currentStack += added;
+            existingUI.UpdateStackText();
+
+            // 🎉 Feedback visuel léger
+            LeanTween.cancel(existingUI.gameObject);
+            LeanTween.scale(existingUI.gameObject, Vector3.one * 1.1f, 0.1f)
+                     .setEaseOutBack()
+                     .setOnComplete(() => LeanTween.scale(existingUI.gameObject, Vector3.one, 0.1f));
+
+            quantity -= added;
+            if (quantity <= 0)
+                return true; // ✅ tout ajouté
+        }
+
+        // ➕ Si aucune pile compatible n’a été trouvée ou qu’il reste du surplus
+        return AddItem(data, quantity);
     }
 }

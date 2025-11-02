@@ -64,6 +64,17 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
         itemUI.UpdateOutline();
         itemUI.ResetVisualLayout();  // <- clé : remet icon/outline centrés à 0°
 
+        // 🔧 Réinitialise la position relative au curseur après rotation
+        if (overlayCanvas != null)
+        {
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                overlayCanvas.transform as RectTransform,
+                Input.mousePosition,
+                null,
+                out Vector2 localPoint);
+            rectTransform.anchoredPosition = localPoint + dragOffset;
+        }
+
         // feedback visuel (optionnel, pas de rotation)
         LeanTween.cancel(itemUI.gameObject);
         itemUI.transform.localScale = Vector3.one;
@@ -432,6 +443,12 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
 
     private bool TryPlaceInContainerByMath(ContainerInventoryManager cont, Vector2 screenPos)
     {
+        if (cont == null || cont.slots == null || cont.slots.Length == 0)
+        {
+            Debug.LogWarning("[ItemDrag] TryPlaceInContainerByMath appelé avec un conteneur NULL ou vide.");
+            return false;
+        }
+
         var grid = cont.slotParent.GetComponent<UnityEngine.UI.GridLayoutGroup>();
         if (grid == null || cont.slots == null) return false;
 
@@ -470,7 +487,7 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
         if (sourcePlayerInv != null) // Joueur -> Conteneur
         {
             // IMPORTANT : on ne recrée pas un nouvel ItemUI, on déplace l’existant
-            if (cont.CanPlaceItem(startX, startY, itemUI.itemData))
+            if (cont.CanPlaceItem(startX, startY, itemUI.itemData, itemUI))
             {
                 cont.PlaceItem(itemUI, startX, startY);
                 sourcePlayerInv.RemoveItem(itemUI);
@@ -481,7 +498,7 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
         }
         else // Déplacement interne conteneur
         {
-            if (cont.CanPlaceItem(startX, startY, itemUI.itemData))
+            if (cont.CanPlaceItem(startX, startY, itemUI.itemData, itemUI))
             {
                 cont.PlaceItem(itemUI, startX, startY);
                 return true;
@@ -694,8 +711,11 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
         {
             var target = r.gameObject.GetComponentInParent<ItemUI>();
             if (target == null || target == dragged) continue;
-            if (target.itemData != dragged.itemData) continue; // même SO
-            if (!target.itemData.isStackable) continue;
+            if (target.itemData == null || dragged.itemData == null) continue;
+            if (!target.itemData.isStackable || !dragged.itemData.isStackable) continue;
+
+            // ✅ compare via la méthode intelligente de ItemData
+            if (!target.itemData.IsSameType(dragged.itemData)) continue;
             if (target.currentStack >= target.itemData.maxStack) continue;
 
             // On fusionne

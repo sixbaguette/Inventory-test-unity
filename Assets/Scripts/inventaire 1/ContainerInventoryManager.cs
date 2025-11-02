@@ -108,17 +108,25 @@ public class ContainerInventoryManager : MonoBehaviour
     public bool CanPlaceItem(int startX, int startY, ItemData item, ItemUI ignore = null)
     {
         if (item == null) return false;
+
         for (int yy = 0; yy < item.height; yy++)
+        {
             for (int xx = 0; xx < item.width; xx++)
             {
                 int cx = startX + xx;
                 int cy = startY + yy;
-                if (cx < 0 || cy < 0 || cx >= width || cy >= height) return false;
+
+                // ✅ hors de la grille → non plaçable
+                if (cx < 0 || cy < 0 || cx >= width || cy >= height)
+                    return false;
 
                 var slot = slots[cx, cy];
-                if (slot.HasItem() && slot.GetItem() != ignore)
+
+                // ✅ Ignore les slots déjà occupés par l’item lui-même
+                if (slot.HasItem() && slot.GetItem() != null && slot.GetItem() != ignore)
                     return false;
             }
+        }
         return true;
     }
 
@@ -126,13 +134,17 @@ public class ContainerInventoryManager : MonoBehaviour
     {
         if (ui == null || ui.itemData == null) return false;
 
+        if (ui.runtimeData == null)
+            ui.runtimeData = ScriptableObject.Instantiate(ui.itemData);
+        ui.itemData = ui.runtimeData;
+
         // ✅ Libère les anciens slots occupés par CET item
         if (ui.occupiedSlots != null)
         {
             foreach (var s in ui.occupiedSlots)
                 if (s != null) s.ClearItem();
         }
-
+        
         // ✅ Teste en ignorant l’item lui-même (déplacement interne)
         if (!CanPlaceItem(startX, startY, ui.itemData, ui))
             return false;
@@ -363,11 +375,34 @@ public class ContainerInventoryManager : MonoBehaviour
             }
         }
 
-        // 2️⃣ Trouve une place libre dans la grille du joueur
-        if (!inv.FindFirstFreePosition(ui.itemData, out int px, out int py))
+        // 2️⃣ Trouve une place libre dans la grille du joueur (avec rotation auto)
+        int px, py;
+        if (!inv.FindFirstFreePosition(ui.itemData, out px, out py))
         {
-            Debug.Log("[ShiftClick] Inventaire joueur plein.");
-            return false;
+            Debug.Log("[ShiftClick] Aucune place dans cette orientation, test rotation auto...");
+
+            int oldW = ui.itemData.width;
+            int oldH = ui.itemData.height;
+            ui.itemData.width = oldH;
+            ui.itemData.height = oldW;
+
+            if (!inv.FindFirstFreePosition(ui.itemData, out px, out py))
+            {
+                // ❌ revert si échec
+                ui.itemData.width = oldW;
+                ui.itemData.height = oldH;
+
+                Debug.Log("[ShiftClick] Inventaire joueur plein (même après rotation).");
+
+                if (UIMessage.Instance != null)
+                    UIMessage.Instance.Show("L’inventaire est plein !");
+                else
+                    Debug.LogWarning("[UIMessage] Instance manquante : impossible d’afficher le message.");
+
+                return false;
+            }
+
+            Debug.Log("[ShiftClick] Placement trouvé après rotation automatique !");
         }
 
         // 3️⃣ Déplace visuellement et logiquement l’item

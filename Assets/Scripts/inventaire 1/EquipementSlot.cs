@@ -48,6 +48,8 @@ public class EquipementSlot : MonoBehaviour, IDropHandler
 
         // Équipe proprement
         EquipItem(droppedUI);
+        // À la fin de UnequipItem()
+        if (MiniTooltipUI.Instance != null) MiniTooltipUI.Instance.HideInstant();
     }
 
     private void EquipItem(ItemUI itemUI)
@@ -175,6 +177,8 @@ public class EquipementSlot : MonoBehaviour, IDropHandler
         }
 
         if (iconDisplay != null) iconDisplay.enabled = true;
+        // À la fin de UnequipItem()
+        if (MiniTooltipUI.Instance != null) MiniTooltipUI.Instance.HideInstant();
     }
 
     public void ForceClear(ItemUI itemUI)

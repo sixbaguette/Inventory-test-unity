@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 
 public class CrosshairUI : MonoBehaviour
@@ -33,6 +33,12 @@ public class CrosshairUI : MonoBehaviour
         bool hasTarget = Physics.Raycast(ray, out RaycastHit hit, detectionRange, detectionMask);
 
         crosshairImage.color = hasTarget ? targetColor : normalColor;
+
+        // === 🔕 Cacher le viseur si inventaire ou conteneur ouvert ===
+        bool anyInventoryOpen = InventoryToggle.IsInventoryOpen
+            || (ContainerUIController.Instance != null && ContainerUIController.Instance.IsContainerOpen);
+
+        SetVisible(!anyInventoryOpen);
     }
 
     public void SetVisible(bool visible)

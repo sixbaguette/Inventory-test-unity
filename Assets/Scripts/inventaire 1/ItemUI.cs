@@ -6,6 +6,7 @@ using TMPro;
 public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
 {
     public ItemData itemData;
+    [HideInInspector] public ItemData runtimeData;
     public Image icon;
     public Image outline;
     public Slot currentSlot;
@@ -29,6 +30,9 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     private bool tooltipVisible = false;
     private float hoverTime = 1f;
     private float timer = 0f;
+
+    private int originalSiblingIndex = -1;
+    private Transform originalParentDuringHover;
 
     [Header("Hover visuals")]
     public Image hoverBackground;
@@ -58,7 +62,16 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
     public void Setup(ItemData newItemData)
     {
-        itemData = newItemData;
+        if (newItemData == null)
+        {
+            Debug.LogError("[ItemUI] Setup appelé avec un ItemData NULL !");
+            return;
+        }
+
+        // 🛡️ Clone seulement si valide
+        runtimeData = ScriptableObject.Instantiate(newItemData);
+        itemData = runtimeData;
+
         currentStack = 1;
         if (icon != null && itemData.icon != null)
         {
@@ -218,42 +231,61 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
     public void RotateItem()
     {
-        if (itemData == null || InventoryManager.Instance == null)
+        if (itemData == null || currentSlot == null)
             return;
 
-        // Sauvegarde dimensions
+        // ✅ Sauvegarde ancienne taille
         int oldWidth = itemData.width;
         int oldHeight = itemData.height;
 
-        // Échange largeur / hauteur
+        // ✅ Sauvegarde ancienne position dans la grille
+        int startX = currentSlot.x;
+        int startY = currentSlot.y;
+
+        // ✅ Sauvegarde l'ancien état pour revert si échec
+        Slot[] oldOccupiedSlots = occupiedSlots != null ? (Slot[])occupiedSlots.Clone() : null;
+
+        // ✅ Inverse les dimensions
         itemData.width = oldHeight;
         itemData.height = oldWidth;
 
-        // Vérifie si l’item peut être replacé à la même position
-        if (currentSlot != null)
+        // 🔍 Vérifie si la nouvelle rotation rentre dans la grille
+        bool canRotate = false;
+        var inv = GetComponentInParent<InventoryManager>();
+        var cont = GetComponentInParent<ContainerInventoryManager>();
+
+        if (inv != null)
+            canRotate = inv.CanPlaceItem(startX, startY, itemData, this);
+        else if (cont != null)
+            canRotate = cont.CanPlaceItem(startX, startY, itemData, this);
+
+        if (canRotate)
         {
-            int startX = currentSlot.x;
-            int startY = currentSlot.y;
+            // ✅ Met à jour la position
+            if (inv != null)
+                inv.PlaceItem(this, startX, startY);
+            else if (cont != null)
+                cont.PlaceItem(this, startX, startY);
 
-            bool canPlace = InventoryManager.Instance.CanPlaceItem(startX, startY, itemData, this);
-            if (!canPlace)
-            {
-                // revert si rotation impossible
-                itemData.width = oldWidth;
-                itemData.height = oldHeight;
-                Debug.Log($"[Rotate] Rotation impossible : pas assez de place pour {itemData.itemName}");
-                return;
-            }
-
-            // Repositionne avec nouvelle taille
-            InventoryManager.Instance.PlaceItem(this, startX, startY);
+            UpdateSize();
+            UpdateOutline();
+            Debug.Log($"[Rotate] {itemData.itemName} tourné avec succès ({itemData.width}x{itemData.height})");
         }
+        else
+        {
+            // ❌ Pas assez de place -> revert
+            itemData.width = oldWidth;
+            itemData.height = oldHeight;
+            occupiedSlots = oldOccupiedSlots;
 
-        // Actualise visuel
-        UpdateSize();
-        UpdateOutline();
+            // Repositionne à la position d'origine (visuel stable)
+            if (inv != null)
+                inv.PlaceItem(this, startX, startY);
+            else if (cont != null)
+                cont.PlaceItem(this, startX, startY);
 
-        Debug.Log($"[Rotate] {itemData.itemName} tourné de 90° ({itemData.width}x{itemData.height})");
+            Debug.Log($"[Rotate] Rotation impossible pour {itemData.itemName}, revert.");
+        }
     }
 
     public void UpdateOutline()
@@ -354,6 +386,9 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         if (eventData.button == PointerEventData.InputButton.Left &&
             (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)))
         {
+            // 🧽 Ferme immédiatement tous les tooltips (mini + gros)
+            HideAllTooltipsNow();
+
             var containerInv = ContainerUIController.Instance?.GetActiveContainerInventory();
             bool containerOpen = (containerInv != null && containerInv.gameObject.activeInHierarchy);
 
@@ -424,6 +459,11 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     {
         if (isBeingDragged) return;
 
+        // 🔝 Met visuellement l’item au-dessus des autres
+        originalSiblingIndex = transform.GetSiblingIndex();
+        originalParentDuringHover = transform.parent;
+        transform.SetAsLastSibling();
+
         // === Hover visuals (comme avant)
         if (hoverBackground != null)
         {
@@ -458,6 +498,13 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     public void OnPointerExit(PointerEventData eventData)
     {
         if (isBeingDragged) return;
+
+        // 🔽 Restaure l’ordre visuel original
+        if (originalParentDuringHover != null && originalSiblingIndex >= 0)
+        {
+            transform.SetSiblingIndex(originalSiblingIndex);
+            originalSiblingIndex = -1;
+        }
 
         // === Hover visuals reset ===
         if (hoverBackground != null)
@@ -631,5 +678,13 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
         currentStack = Mathf.Clamp(amount, 1, itemData.maxStack);
         UpdateStackText();
+    }
+
+    private void HideAllTooltipsNow()
+    {
+        if (MiniTooltipUI.Instance != null)
+            MiniTooltipUI.Instance.HideInstant();
+        if (tooltip != null)
+            tooltip.HideAll();
     }
 }

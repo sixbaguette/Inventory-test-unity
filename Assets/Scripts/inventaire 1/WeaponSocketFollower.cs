@@ -1,21 +1,21 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 
 public class WeaponSocketFollower : MonoBehaviour
 {
-    [Header("Références")]
-    public Transform cameraTransform;   // la caméra FPS
+    [Header("RÃ©fÃ©rences")]
+    public Transform cameraTransform;   // la camÃ©ra FPS
     public Transform playerRoot;        // (optionnel) le root/torse du joueur pour clamp hauteur
 
-    [Header("Placement relatif à la caméra")]
-    public Vector3 offsetLocal = new Vector3(0.25f, -0.18f, 0.45f); // x= droite/gauche, y= haut/bas, z= avant/arrière
+    [Header("Placement relatif Ã  la camÃ©ra")]
+    public Vector3 offsetLocal = new Vector3(0.25f, -0.18f, 0.45f); // x= droite/gauche, y= haut/bas, z= avant/arriÃ¨re
 
     [Header("Lissage (facultatif)")]
     public float posLerp = 20f;
     public float rotLerp = 20f;
 
     [Header("Options")]
-    public bool ignoreHeadBobPosition = true; // si true, on neutralise les translations de la caméra (headbob)
-    public Transform referenceForPosition;     // si défini et ignoreHeadBobPosition=true : on prend sa position de base
+    public bool ignoreHeadBobPosition = true; // si true, on neutralise les translations de la camÃ©ra (headbob)
+    public Transform referenceForPosition;     // si dÃ©fini et ignoreHeadBobPosition=true : on prend sa position de base
 
     void Reset()
     {
@@ -26,13 +26,13 @@ public class WeaponSocketFollower : MonoBehaviour
     {
         if (cameraTransform == null) return;
 
-        // Orientation = exactement celle de la caméra (pitch + yaw)
+        // Orientation = exactement celle de la camÃ©ra (pitch + yaw)
         Quaternion targetRot = cameraTransform.rotation;
 
-        // Position : à partir de la caméra + offset dans l'espace caméra
+        // Position : Ã  partir de la camÃ©ra + offset dans l'espace camÃ©ra
         Vector3 basePos = cameraTransform.position;
 
-        // Si on veut ignorer le headbob (la cam bouge en Y) on peut prendre une ref stable (ex: tête du joueur)
+        // Si on veut ignorer le headbob (la cam bouge en Y) on peut prendre une ref stable (ex: tÃªte du joueur)
         if (ignoreHeadBobPosition && referenceForPosition != null)
             basePos = referenceForPosition.position;
 

@@ -77,28 +77,33 @@ public class Container : MonoBehaviour
 
                 inv.AddItem(entry.itemData);
                 var lastItem = inv.items.Count > 0 ? inv.items[^1] : null;
-                if (lastItem != null && entry.itemData.isStackable)
+                if (lastItem != null)
                 {
-                    lastItem.SetStack(entry.stackCount);
-                }
+                    if (entry.itemData.isStackable)
+                        lastItem.SetStack(entry.stackCount);
 
-                storedItems.Add(new StoredItem
-                {
-                    data = entry.itemData,
-                    x = 0,
-                    y = 0,
-                    width = entry.itemData.width,
-                    height = entry.itemData.height,
-                    stack = entry.stackCount
-                });
+                    // 🆕 init runtime: si arme → chargeur plein au tout premier spawn
+                    lastItem.currentAmmo = entry.itemData.isGun ? entry.itemData.ammoCapacity : -1;
+
+                    storedItems.Add(new StoredItem
+                    {
+                        data = entry.itemData,
+                        x = lastItem.currentSlot != null ? lastItem.currentSlot.x : 0,
+                        y = lastItem.currentSlot != null ? lastItem.currentSlot.y : 0,
+                        width = entry.itemData.width,
+                        height = entry.itemData.height,
+                        stack = lastItem.currentStack,
+
+                        // 🆕 persiste l’état runtime dès la première ouverture
+                        currentAmmo = lastItem.currentAmmo
+                    });
+                }
             }
 
-            // 🧹 Vide la liste pour éviter les duplications
             startingItems.Clear();
         }
         else
         {
-            // 🟢 Sinon recharge depuis la sauvegarde
             foreach (var s in storedItems)
             {
                 if (s == null || s.data == null) continue;
@@ -108,6 +113,9 @@ public class Container : MonoBehaviour
                 ui.Setup(s.data);
                 ui.currentStack = Mathf.Max(1, s.stack);
                 ui.UpdateStackText();
+
+                // 🆕 restaure runtime
+                ui.currentAmmo = s.currentAmmo;
 
                 inv.PlaceItem(ui, s.x, s.y);
             }
@@ -138,7 +146,10 @@ public class Container : MonoBehaviour
                 y = ui.currentSlot.y,
                 width = ui.itemData.width,
                 height = ui.itemData.height,
-                stack = ui.currentStack
+                stack = ui.currentStack,
+
+                // 🆕 snapshot runtime
+                currentAmmo = ui.currentAmmo
             });
         }
 
@@ -161,4 +172,8 @@ public class StoredItem
     public int width;
     public int height;
     public int stack = 1;
+
+    // 🆕 ÉTATS RUNTIME
+    public int currentAmmo = -1;   // -1 = inconnu / non applicable
+    // (plus tard tu pourras ajouter durability, modifiers, etc.)
 }

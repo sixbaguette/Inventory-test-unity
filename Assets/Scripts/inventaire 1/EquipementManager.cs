@@ -83,6 +83,22 @@ public class EquipementManager : MonoBehaviour
         itemUI.Owner = ItemUI.ItemOwner.Equipment;
 
         Debug.Log($"[Equip] {data.itemName} équipé dans {slot.name}");
+
+        var hotbar = FindFirstObjectByType<HotbarManager>();
+        if (hotbar != null)
+        {
+            int currentIndex = hotbar.GetCurrentHotbarIndex();
+            if (currentIndex >= 0 && currentIndex < hotbar.hotbarSlots.Count)
+            {
+                var currentSlot = hotbar.hotbarSlots[currentIndex].linkedSlot;
+                if (currentSlot == slot)
+                {
+                    Debug.Log("[AutoEquip] Slot hotbar actif mis à jour → rééquipement immédiat");
+                    hotbar.UseHotbarSlotByIndex(currentIndex);
+                }
+            }
+        }
+
         return true;
     }
 
@@ -97,7 +113,7 @@ public class EquipementManager : MonoBehaviour
             return;
         }
 
-        // 1) Vide le slot
+        // 1️⃣ Vide le slot
         slot.UnequipItem();
 
         // 🔥 Forcer la désinstanciation si cet item est en main
@@ -109,10 +125,44 @@ public class EquipementManager : MonoBehaviour
 
         Debug.Log($"[Unequip] {itemUI.itemData.itemName} retiré du slot {slot.name}");
 
-        // 2) Replace dans l'inventaire
+        // 2️⃣ Replace dans l'inventaire
         var inv = InventoryManager.Instance;
         if (inv != null)
         {
+            // 🧩 2.1 Tentative de fusion dans une pile existante avant de créer une nouvelle pile
+            if (itemUI.itemData != null && itemUI.itemData.isStackable)
+            {
+                var allItems = inv.GetAllItemUIs();
+                foreach (var other in allItems)
+                {
+                    if (other == null || other == itemUI) continue;
+                    if (other.itemData == null) continue;
+                    if (!other.itemData.isStackable) continue;
+                    if (!other.itemData.IsSameType(itemUI.itemData)) continue;
+
+                    int space = other.itemData.maxStack - other.currentStack;
+                    if (space <= 0) continue;
+
+                    int moved = Mathf.Min(space, itemUI.currentStack);
+                    other.currentStack += moved;
+                    other.UpdateStackText();
+
+                    itemUI.currentStack -= moved;
+                    itemUI.UpdateStackText();
+
+                    Debug.Log($"[UnequipMerge] +{moved} {itemUI.itemData.itemName} fusionné avec pile existante ({other.currentStack}/{other.itemData.maxStack})");
+
+                    if (itemUI.currentStack <= 0)
+                    {
+                        // ✅ pile entièrement fusionnée → on détruit l’objet déséquipé
+                        Debug.Log("[UnequipMerge] Stack entièrement fusionné, suppression de la source.");
+                        Object.Destroy(itemUI.gameObject);
+                        return;
+                    }
+                }
+            }
+
+            // 🧩 2.2 Si pas entièrement fusionné, on replace normalement dans la grille
             bool placed = inv.TryAutoPlace(itemUI);
             if (placed)
             {

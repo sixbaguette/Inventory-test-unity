@@ -53,7 +53,7 @@ public class PlayerPickupManager : MonoBehaviour
                 if (wi.itemData.isGun)
                 {
                     // Ajoute normalement
-                    bool added = InventoryManager.Instance.AddItem(wi.itemData, amount);
+                    bool added = InventoryManager.Instance.AddOrStackItem(wi.itemData, amount);
 
                     if (added)
                     {
@@ -75,7 +75,7 @@ public class PlayerPickupManager : MonoBehaviour
                 else
                 {
                     // comportement normal (stackables, objets simples)
-                    bool added = InventoryManager.Instance.AddItem(wi.itemData, amount);
+                    bool added = InventoryManager.Instance.AddOrStackItem(wi.itemData, amount);
                     Debug.Log($"[Pickup] Ajout de {amount}x {wi.itemData.itemName} → {(added ? "OK" : "ÉCHEC")}");
 
                     if (added)
