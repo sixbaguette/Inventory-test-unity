@@ -52,7 +52,7 @@ public class EquipementSlot : MonoBehaviour, IDropHandler
         if (MiniTooltipUI.Instance != null) MiniTooltipUI.Instance.HideInstant();
     }
 
-    private void EquipItem(ItemUI itemUI)
+    public void EquipItem(ItemUI itemUI)
     {
         if (itemUI == null) return;
 
@@ -308,6 +308,16 @@ public class EquipementSlot : MonoBehaviour, IDropHandler
             {
                 icon.color = Color.Lerp(Color.yellow, c, v);
             }, 0f, 1f, 0.25f).setEaseOutCubic();
+        }
+    }
+
+    public void BeginDragDetach(ItemUI itemUI)
+    {
+        if (currentItem == itemUI)
+        {
+            currentItem = null;
+            if (iconDisplay != null) iconDisplay.enabled = true; // show the placeholder icon again
+                                                                 // IMPORTANT: do NOT reparent itemUI here.
         }
     }
 }

@@ -275,6 +275,44 @@ public class ItemDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
 
         bool placed = false;
 
+        // === 0️⃣ Priorité : test direct des slots d’équipement sous la souris ===
+        {
+            PointerEventData pointerData = new PointerEventData(UnityEngine.EventSystems.EventSystem.current)
+            {
+                position = eventData.position
+            };
+            var results = new List<RaycastResult>();
+            UnityEngine.EventSystems.EventSystem.current.RaycastAll(pointerData, results);
+
+            foreach (var r in results)
+            {
+                var equipSlot = r.gameObject.GetComponentInParent<EquipementSlot>();
+                if (equipSlot != null && equipSlot.IsCompatible(itemUI.itemData))
+                {
+                    // 🔇 Cache les tooltips tout de suite
+                    if (MiniTooltipUI.Instance) MiniTooltipUI.Instance.HideInstant();
+
+                    // 🧹 Retire l'item de son inventaire ou container source avant d'équiper
+                    if (sourcePlayerInv != null)
+                    {
+                        sourcePlayerInv.DetachWithoutDestroy(itemUI);
+                        sourcePlayerInv = null;
+                    }
+                    else if (sourceContainerInv != null)
+                    {
+                        sourceContainerInv.DetachWithoutDestroy(itemUI);
+                        sourceContainerInv = null;
+                    }
+
+                    // ✅ Équipe proprement (gère parentage + resize comme Shift+Click)
+                    EquipementManager.Instance.TryEquipItemInSpecificSlot(itemUI, equipSlot);
+
+                    placed = true;
+                    break;
+                }
+            }
+        }
+
         // === 1️⃣ Priorité : conteneur si ouvert ===
         if (openContainer != null && openContainer.slotParent != null)
         {

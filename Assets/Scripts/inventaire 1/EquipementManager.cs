@@ -289,4 +289,41 @@ public class EquipementManager : MonoBehaviour
         }
         return null;
     }
+
+    public bool TryEquipItemInSpecificSlot(ItemUI itemUI, EquipementSlot targetSlot)
+    {
+        if (itemUI == null || targetSlot == null || itemUI.itemData == null)
+            return false;
+
+        var data = itemUI.itemData;
+
+        if (!targetSlot.IsCompatible(data))
+            return false;
+
+        // 🧹 Nettoie les slots de la grille que l’objet occupait
+        if (itemUI.occupiedSlots != null)
+        {
+            foreach (var s in itemUI.occupiedSlots)
+                s?.ClearItem();
+        }
+        itemUI.occupiedSlots = null;
+        itemUI.currentSlot = null;
+
+        // 🧹 Détache proprement de l'inventaire
+        InventoryManager.Instance?.DetachWithoutDestroy(itemUI);
+
+        // 🪄 Équipe directement dans le slot ciblé
+        targetSlot.EquipItem(itemUI);
+
+        // 🔊 Sons
+        if (data.equipSlotType == EquipSlotType.Primary || data.equipSlotType == EquipSlotType.Secondary)
+            InventoryAudioManager.Instance.Play("equip_weapon");
+        else if (data.equipSlotType == EquipSlotType.Armor || data.equipSlotType == EquipSlotType.Helmet || data.equipSlotType == EquipSlotType.Legging)
+            InventoryAudioManager.Instance.Play("equip_armor");
+
+        itemUI.Owner = ItemUI.ItemOwner.Equipment;
+        Debug.Log($"[Equip] {data.itemName} équipé manuellement dans {targetSlot.name}");
+
+        return true;
+    }
 }

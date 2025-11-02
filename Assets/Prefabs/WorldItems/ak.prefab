@@ -5373,7 +5373,7 @@ MonoBehaviour:
   ammoText: {fileID: 1571611275583319458}
   handSocket: {fileID: 0}
   normalX: 0.4
-  aimX: 0
+  aimX: 0.2
   aimTransitionSpeed: 8
   recoilUp: 3
   recoilSide: 2
@@ -5415,7 +5415,7 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
+  MinDistance: 2.323211
   MaxDistance: 500
   Pan2D: 0
   rolloffMode: 0
