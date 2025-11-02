@@ -7,6 +7,7 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 {
     public ItemData itemData;
     [HideInInspector] public ItemData runtimeData;
+    public ItemData baseItemData; // ✅ référence vers le ScriptableObject original
     public Image icon;
     public Image outline;
     public Slot currentSlot;
@@ -68,9 +69,8 @@ public class ItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             return;
         }
 
-        // 🛡️ Clone seulement si valide
-        runtimeData = ScriptableObject.Instantiate(newItemData);
-        itemData = runtimeData;
+        baseItemData = newItemData;                  // référence directe vers l’original
+        itemData = ScriptableObject.Instantiate(newItemData); // clone toujours utile pour runtime
 
         currentStack = 1;
         if (icon != null && itemData.icon != null)

@@ -28,7 +28,7 @@ MonoBehaviour:
   damage: 25
   fireRate: 0.1
   reloadTime: 3
-  bulletSpeed: 50
+  bulletSpeed: 100
   ammoCapacity: 30
   aimSpeed: 8
   bulletType: 1
@@ -39,3 +39,13 @@ MonoBehaviour:
   reloadSound: {fileID: 8300000, guid: 3e4de2615d80c3a4e955dc7d71cdddcf, type: 3}
   emptyClickSound: {fileID: 8300000, guid: f4c2646903b8e7545a7f97b0031bc344, type: 3}
   muzzleFlash: {fileID: 0}
+  isHealingItem: 0
+  healAmount: 25
+  useTime: 3
+  isArmor: 0
+  armorValue: 0
+  armorSlotType: 0
+  isMeleeWeapon: 0
+  meleeDamage: 25
+  attackRange: 2
+  attackSpeed: 1

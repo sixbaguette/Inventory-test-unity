@@ -64,6 +64,7 @@ public class GunSystem : MonoBehaviour
     void Awake()
     {
         enabled = false;
+        muzzleFlashController = GetComponent<MuzzleFlashController>();
         audioSource = GetComponent<AudioSource>();
     }
 
@@ -89,7 +90,6 @@ public class GunSystem : MonoBehaviour
         }
 
         crosshair = FindFirstObjectByType<CrosshairUI>();
-        muzzleFlashController = GetComponent<MuzzleFlashController>();
         // ❌ NE PAS initialiser currentAmmo ici,
         // il est défini dans EquipWeapon() (sinon reset du chargeur)
     }
@@ -161,36 +161,36 @@ public class GunSystem : MonoBehaviour
             return;
         }
 
-        // Direction réelle du canon
         Vector3 shootDir = firePoint.forward;
 
-        // ✅ Création de la balle
-        GameObject bullet = Instantiate(weaponData.bulletPrefab, firePoint.position, Quaternion.LookRotation(shootDir));
-        Rigidbody rb = bullet.GetComponent<Rigidbody>();
+        Debug.Log($"[GunSystem] Tir avec vitesse = {weaponData.bulletSpeed}");
 
-        // 🔒 Ignore collisions avec le joueur et l’arme
-        Collider bulletCol = bullet.GetComponent<Collider>();
+        GameObject bulletGO = Instantiate(weaponData.bulletPrefab, firePoint.position, Quaternion.LookRotation(shootDir));
+
+        // Récupère les colliders du joueur/arme pour les ignorer
         Collider[] playerCols = GetComponentsInParent<Collider>();
-        foreach (var col in playerCols)
-        {
-            if (bulletCol && col)
-                Physics.IgnoreCollision(bulletCol, col);
-        }
 
-        if (rb != null)
-        {
-            rb.isKinematic = false;
-            rb.useGravity = false;
-            rb.linearVelocity = shootDir * weaponData.bulletSpeed;
-        }
-
-        Bullet bulletScript = bullet.GetComponent<Bullet>();
+        // Initialise la balle (direction + vitesse + dégâts + types + colliders à ignorer)
+        Bullet bulletScript = bulletGO.GetComponent<Bullet>();
         if (bulletScript != null)
-            bulletScript.speed = weaponData.bulletSpeed;
+        {
+            bulletScript.Initialize(
+                shootDir,
+                weaponData.bulletSpeed,      // <- la vitesse que tu règles dans ton ItemData
+                weaponData.damage,           // ou damage si ailleurs
+                weaponData.bulletType,
+                playerCols
+            );
+        }
 
+        // (Optionnel) si tu as laissé un Rigidbody sur le prefab, assure :
+        var rb = bulletGO.GetComponent<Rigidbody>();
+        if (rb != null) { rb.isKinematic = true; rb.useGravity = false; }
+
+        // FX / Son / Recoil inchangés :
         if (weaponData.muzzleFlash)
         {
-            ParticleSystem flash = Instantiate(weaponData.muzzleFlash, firePoint.position, firePoint.rotation);
+            var flash = Instantiate(weaponData.muzzleFlash, firePoint.position, firePoint.rotation);
             flash.Play();
             Destroy(flash.gameObject, 0.2f);
         }
@@ -202,14 +202,9 @@ public class GunSystem : MonoBehaviour
         }
 
         currentAmmo--;
+        if (linkedItemUI != null) linkedItemUI.currentAmmo = currentAmmo;
 
-        if (linkedItemUI != null)
-        {
-            linkedItemUI.currentAmmo = currentAmmo;
-            Debug.Log($"[GunSystem] Tir -> {currentAmmo} balles restantes (sauvegardé dans {linkedItemUI.name})");
-        }
-
-        // 🎯 Recoil
+        // Recoil visuel...
         float recoilVertical = Random.Range(recoilUp * 0.8f, recoilUp * 1.2f);
         float recoilHorizontal = Random.Range(-recoilSide, recoilSide);
         recoilTarget += new Vector2(recoilVertical, recoilHorizontal);
@@ -218,11 +213,8 @@ public class GunSystem : MonoBehaviour
         float recoilY = Random.Range(-recoilRotationSide, recoilRotationSide) * recoilMultiplier;
         targetRotation += new Vector3(-recoilX, recoilY, 0f);
 
-        // 🔙 petit recul physique du modèle
         targetWeaponRecoil += -Vector3.forward * recoilBack;
-
-        if (muzzleFlashController != null)
-            muzzleFlashController.PlayFlash();
+        if (muzzleFlashController != null) muzzleFlashController.PlayFlash();
     }
 
     // === 🔁 RELOAD ===
@@ -333,9 +325,9 @@ public class GunSystem : MonoBehaviour
 
     public void EquipWeapon(ItemData data, ItemUI itemUI = null)
     {
-        weaponData = data;
-        enabled = true;
         linkedItemUI = itemUI;
+        weaponData = (itemUI != null && itemUI.baseItemData != null) ? itemUI.baseItemData : data;
+        enabled = true;
 
         if (linkedItemUI != null && linkedItemUI.currentAmmo >= 0)
         {
