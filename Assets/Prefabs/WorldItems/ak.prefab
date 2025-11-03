@@ -5394,6 +5394,8 @@ MonoBehaviour:
     data: {fileID: 0}
     quantity: 0
     currentAmmo: 0
+  handPositionOffset: {x: 0, y: 0, z: 0}
+  handRotationOffset: {x: 0, y: 0, z: 0}
 --- !u!82 &6683572162536995373
 AudioSource:
   m_ObjectHideFlags: 0

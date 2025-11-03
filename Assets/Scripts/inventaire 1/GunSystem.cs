@@ -20,8 +20,8 @@ public class GunSystem : MonoBehaviour
 
     [Header("Aiming / Hand Offset")]
     public Transform handSocket;
-    public float normalX = 0.2f;
-    public float aimX = 0f;
+    public float normalX = 0.4f;
+    public float aimX = 0.2f;
     public float aimTransitionSpeed = 10f;
 
     [Header("Recoil Settings")]
@@ -60,6 +60,13 @@ public class GunSystem : MonoBehaviour
     private MuzzleFlashController muzzleFlashController;
 
     private CrosshairUI crosshair;
+
+    [Header("Hand Alignment Offset")]
+    public Vector3 handPositionOffset; // sliders dans l’inspector
+    public Vector3 handRotationOffset; // sliders dans l’inspector
+
+    private Vector3 originalHandPos;
+    private Quaternion originalHandRot;
 
     void Awake()
     {
@@ -354,4 +361,22 @@ public class GunSystem : MonoBehaviour
     }
 
     public void DisableWeapon() => gameObject.SetActive(false);
+
+    public void ApplyHandOffset()
+    {
+        if (handSocket == null) return;
+
+        originalHandPos = handSocket.localPosition;
+        originalHandRot = handSocket.localRotation;
+
+        handSocket.localPosition += handPositionOffset;
+        handSocket.localRotation *= Quaternion.Euler(handRotationOffset);
+    }
+
+    public void ResetHandOffset()
+    {
+        if (handSocket == null) return;
+        handSocket.localPosition = originalHandPos;
+        handSocket.localRotation = originalHandRot;
+    }
 }

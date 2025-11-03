@@ -30,16 +30,22 @@ public class PlayerEquipHandler : MonoBehaviour
         {
             gun.handSocket = handSocket;
             gun.EquipWeapon(itemData, itemUI); // 🆕 on passe le ItemUI ici
+            gun.ApplyHandOffset();   // 🆕 ici
             gun.enabled = true;
         }
 
         Debug.Log($"[EquipHandler] Équipé {itemData.itemName}");
     }
-
+   
     public void UnequipAll()
     {
         if (currentEquippedObject != null)
         {
+            // 🆕 remet le handSocket à zéro avant destruction
+            GunSystem gun = currentEquippedObject.GetComponent<GunSystem>();
+            if (gun != null)
+                gun.ResetHandOffset();
+
             Debug.Log("[EquipHandler] Destruction de " + currentEquippedObject.name);
             Destroy(currentEquippedObject);
             currentEquippedObject = null;

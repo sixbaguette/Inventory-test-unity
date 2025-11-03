@@ -46,9 +46,9 @@ public class ContainerInventoryManager : MonoBehaviour
         var grid = slotParent.GetComponent<UnityEngine.UI.GridLayoutGroup>();
         if (grid == null)
             grid = slotParent.gameObject.AddComponent<UnityEngine.UI.GridLayoutGroup>();
-        grid.cellSize = new Vector2(40, 40);
+        grid.cellSize = new Vector2(60, 60);
         grid.spacing = new Vector2(1, 1);
-        grid.padding = new RectOffset(400, 0, 30, 0);
+        grid.padding = new RectOffset(950, 0, 200, 0);
         grid.childAlignment = TextAnchor.UpperLeft;
         grid.constraint = UnityEngine.UI.GridLayoutGroup.Constraint.FixedColumnCount;
         grid.constraintCount = width;

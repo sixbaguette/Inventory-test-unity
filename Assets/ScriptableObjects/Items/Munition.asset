@@ -18,7 +18,7 @@ MonoBehaviour:
   icon: {fileID: 21300000, guid: 53293bb25a334a446bc064b77e357bae, type: 3}
   width: 2
   height: 1
-  isEquipable: 1
+  isEquipable: 0
   equipSlotType: 3
   worldPrefab: {fileID: 848554633087692977, guid: 8b8473daaed51de43b9f7a8308473b93, type: 3}
   isStackable: 1
@@ -39,3 +39,13 @@ MonoBehaviour:
   reloadSound: {fileID: 0}
   emptyClickSound: {fileID: 0}
   muzzleFlash: {fileID: 0}
+  isHealingItem: 0
+  healAmount: 25
+  useTime: 3
+  isArmor: 0
+  armorValue: 0
+  armorSlotType: 0
+  isMeleeWeapon: 0
+  meleeDamage: 25
+  attackRange: 2
+  attackSpeed: 1

@@ -115,7 +115,7 @@ public class ContextMenuUI : MonoBehaviour
             .setOnUpdate((float val) =>
             {
                 canvasGroup.alpha = val;
-                panelRect.localScale = Vector3.one * Mathf.Lerp(0.8f, 1f, val);
+                panelRect.localScale = Vector3.one * Mathf.Lerp(1.5f, 1.5f, val);
             });
 
         canvasGroup.interactable = true;
@@ -281,7 +281,7 @@ public class ContextMenuUI : MonoBehaviour
             .setOnUpdate((float val) =>
             {
                 canvasGroup.alpha = val;
-                panelRect.localScale = Vector3.one * Mathf.Lerp(1f, 0.9f, 1 - val);
+                panelRect.localScale = Vector3.one * Mathf.Lerp(1.5f, 1.5f, 1.5f - val);
             })
             .setOnComplete(() =>
             {
