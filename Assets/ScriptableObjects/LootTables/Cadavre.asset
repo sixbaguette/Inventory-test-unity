@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 278d748651787fa498515f7581a1145d, type: 3}
+  m_Name: Cadavre
+  m_EditorClassIdentifier: 
+  maxTotalItems: -1
+  respectInventorySpace: 1
+  fixedSeed: 0
+  categories:
+  - name: armure
+    minRolls: 1
+    maxRolls: 2
+    entries:
+    - itemData: {fileID: 11400000, guid: e00d9f48af5dbaf4fb7f0415c3c4fb0d, type: 2}
+      worldItemPrefab: {fileID: 8033782918543325919, guid: b1eced00d05f95e42b088004a81e70d1, type: 3}
+      weight: 30
+      minStack: 1
+      maxStack: 1
+    - itemData: {fileID: 11400000, guid: 484c17b3910dd3546aa4a8bd1c23138c, type: 2}
+      worldItemPrefab: {fileID: 7600172012837011108, guid: 7cb74d610007d334bbd2e0664e627ce8, type: 3}
+      weight: 10
+      minStack: 1
+      maxStack: 1
+    - itemData: {fileID: 11400000, guid: e1c4499d2a16db34d9960d513839d11f, type: 2}
+      worldItemPrefab: {fileID: 7600172012837011108, guid: 7cb74d610007d334bbd2e0664e627ce8, type: 3}
+      weight: 60
+      minStack: 1
+      maxStack: 1

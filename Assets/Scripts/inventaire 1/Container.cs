@@ -68,8 +68,37 @@ public class Container : MonoBehaviour
         inv.height = height;
         inv.InitializeGrid();
 
-        // 🔹 Si le coffre n’a jamais été ouvert
-        if (storedItems.Count == 0 && startingItems != null && startingItems.Count > 0)
+        // 1) Priorité: si on a déjà un contenu persistant -> on le réhydrate et ON S'ARRÊTE LÀ
+        if (storedItems.Count > 0)
+        {
+            foreach (var s in storedItems)
+            {
+                if (s == null || s.data == null) continue;
+
+                GameObject go = GameObject.Instantiate(inv.itemUIPrefab, inv.itemsLayer);
+                var ui = go.GetComponent<ItemUI>();
+                ui.Setup(s.data);
+                ui.currentStack = Mathf.Max(1, s.stack);
+                ui.UpdateStackText();
+
+                ui.currentAmmo = s.currentAmmo;
+
+                // ⚠️ Si le placement échoue, on détruit pour éviter le "ghost" en haut-gauche
+                if (!inv.PlaceItem(ui, s.x, s.y))
+                {
+                    Debug.LogWarning($"[Container] Échec de placement lors de la réhydratation → destroy {ui.itemData?.itemName}");
+                    GameObject.Destroy(go);
+                }
+                else
+                {
+                    inv.AddToInventoryList(ui);
+                }
+            }
+            return; // ⛔ très important : ne PAS générer/dupliquer après ça
+        }
+
+        // 2) Sinon: items de départ manuels (une seule fois)
+        if (startingItems != null && startingItems.Count > 0)
         {
             foreach (var entry in startingItems)
             {
@@ -82,7 +111,6 @@ public class Container : MonoBehaviour
                     if (entry.itemData.isStackable)
                         lastItem.SetStack(entry.stackCount);
 
-                    // 🆕 init runtime: si arme → chargeur plein au tout premier spawn
                     lastItem.currentAmmo = entry.itemData.isGun ? entry.itemData.ammoCapacity : -1;
 
                     storedItems.Add(new StoredItem
@@ -93,33 +121,49 @@ public class Container : MonoBehaviour
                         width = entry.itemData.width,
                         height = entry.itemData.height,
                         stack = lastItem.currentStack,
-
-                        // 🆕 persiste l’état runtime dès la première ouverture
                         currentAmmo = lastItem.currentAmmo
                     });
                 }
             }
 
             startingItems.Clear();
+            return; // ⛔ ne pas poursuivre (sinon tu générerais par-dessus)
         }
-        else
+
+        // 3) Enfin: loot table (si configurée) → génère, puis snapshot dans storedItems, et on ne réhydrate PAS (car déjà visible)
+        var loot = GetComponent<ContainerLootTable>();
+        if (loot != null)
         {
-            foreach (var s in storedItems)
+            loot.containerInv = inv;
+            loot.EnsureGenerated(); // génère visuellement dans la grille si besoin
+
+            // snapshot dans storedItems (uniquement si c’est encore vide)
+            if (storedItems.Count == 0)
             {
-                if (s == null || s.data == null) continue;
+                foreach (var itemUI in inv.items)
+                {
+                    if (itemUI == null || itemUI.itemData == null || itemUI.currentSlot == null)
+                        continue;
 
-                GameObject go = GameObject.Instantiate(inv.itemUIPrefab, inv.itemsLayer);
-                var ui = go.GetComponent<ItemUI>();
-                ui.Setup(s.data);
-                ui.currentStack = Mathf.Max(1, s.stack);
-                ui.UpdateStackText();
+                    storedItems.Add(new StoredItem
+                    {
+                        data = itemUI.itemData,
+                        x = itemUI.currentSlot.x,
+                        y = itemUI.currentSlot.y,
+                        width = itemUI.itemData.width,
+                        height = itemUI.itemData.height,
+                        stack = itemUI.currentStack,
+                        currentAmmo = itemUI.itemData.isGun ? itemUI.itemData.ammoCapacity : -1
+                    });
+                }
 
-                // 🆕 restaure runtime
-                ui.currentAmmo = s.currentAmmo;
-
-                inv.PlaceItem(ui, s.x, s.y);
+                Debug.Log($"[Container] Loot généré depuis {loot.profile?.name} → {storedItems.Count} items enregistrés.");
             }
+
+            return;
         }
+
+        // 4) Aucun contenu configuré → rien à faire
     }
 
     /// <summary>

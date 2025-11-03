@@ -238,7 +238,33 @@ public class PlayerPickupManager : MonoBehaviour
             }
         }
 
-        inv.RemoveItem(itemToDrop);
+        // === Retrait de l'item de l'inventaire approprié ===
+        if (InventoryManager.Instance != null &&
+            itemToDrop.transform.IsChildOf(InventoryManager.Instance.itemsLayer))
+        {
+            // 🧍‍♂️ L'item est bien dans l'inventaire du joueur
+            InventoryManager.Instance.RemoveItem(itemToDrop);
+        }
+        else
+        {
+            // 📦 Sinon, c’est un item d’un container
+            var containerInv = itemToDrop.GetComponentInParent<ContainerInventoryManager>();
+            if (containerInv != null)
+            {
+                containerInv.RemoveItem(itemToDrop);
+
+                // 🔄 Persistance immédiate
+                var container = containerInv.GetComponentInParent<Container>();
+                if (container != null)
+                    container.SaveFrom(containerInv);
+            }
+            else
+            {
+                // ⚠️ Sécurité si l’objet n’est dans aucun inventaire
+                GameObject.Destroy(itemToDrop.gameObject);
+                Debug.LogWarning($"[DropSpecificItem] Item {itemToDrop.itemData?.itemName} supprimé manuellement (hors inventaire).");
+            }
+        }
     }
 
     public void DropEntireStack(ItemUI itemToDrop)
@@ -279,7 +305,34 @@ public class PlayerPickupManager : MonoBehaviour
             }
         }
 
-        inv.RemoveItem(itemToDrop);
+        // === Retrait de l'item de l'inventaire approprié ===
+        if (InventoryManager.Instance != null &&
+            itemToDrop.transform.IsChildOf(InventoryManager.Instance.itemsLayer))
+        {
+            // 🧍‍♂️ L'item vient de l'inventaire joueur
+            InventoryManager.Instance.RemoveItem(itemToDrop);
+        }
+        else
+        {
+            // 📦 Item venant d’un container
+            var containerInv = itemToDrop.GetComponentInParent<ContainerInventoryManager>();
+            if (containerInv != null)
+            {
+                containerInv.RemoveItem(itemToDrop);
+
+                // 🔄 Persistance immédiate pour le coffre
+                var container = containerInv.GetComponentInParent<Container>();
+                if (container != null)
+                    container.SaveFrom(containerInv);
+            }
+            else
+            {
+                // ⚠️ Sécurité : détruit l’objet si on ne sait pas d’où il vient
+                GameObject.Destroy(itemToDrop.gameObject);
+                Debug.LogWarning($"[DropEntireStack] Item {itemToDrop.itemData?.itemName} supprimé manuellement (hors inventaire).");
+            }
+        }
+
         Debug.Log($"[DropStack] {itemToDrop.currentStack}x {data.itemName} droppés !");
     }
 
