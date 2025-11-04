@@ -2,81 +2,109 @@
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
+[RequireComponent(typeof(CanvasGroup))]
 public class TrashSlot : MonoBehaviour, IDropHandler, IPointerEnterHandler, IPointerExitHandler
 {
     [Header("Visuel")]
-    [Tooltip("L’image principale (ton icône de poubelle).")]
     public Image iconImage;
-
-    [Tooltip("Fond coloré qui s’affiche en survol.")]
     public Image highlightOverlay;
 
     [Header("Couleurs")]
-    public Color overlayNormal = new Color(1f, 0f, 0f, 0f);      // invisible
-    public Color overlayHighlight = new Color(1f, 0f, 0f, 0.35f); // rouge semi-transparent
+    public Color overlayNormal = new(1f, 0f, 0f, 0f);
+    public Color overlayHighlight = new(1f, 0f, 0f, 0.35f);
 
-    private void Start()
+    private Canvas myCanvas;
+    private CanvasGroup group;
+
+    void Awake()
     {
-        if (highlightOverlay != null)
+        // assure raycast valide
+        myCanvas = GetComponentInParent<Canvas>();
+        group = GetComponent<CanvasGroup>();
+
+        if (myCanvas == null)
+            myCanvas = gameObject.AddComponent<Canvas>();
+        if (myCanvas.GetComponent<GraphicRaycaster>() == null)
+            myCanvas.gameObject.AddComponent<GraphicRaycaster>();
+
+        group.interactable = true;
+        group.blocksRaycasts = true;
+        group.alpha = 1f;
+
+        if (iconImage) iconImage.raycastTarget = true;
+        if (highlightOverlay) highlightOverlay.raycastTarget = true;
+
+        if (highlightOverlay)
             highlightOverlay.color = overlayNormal;
     }
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        if (highlightOverlay != null)
-        {
-            LeanTween.cancel(highlightOverlay.gameObject);
-            LeanTween.value(highlightOverlay.gameObject, highlightOverlay.color, overlayHighlight, 0.15f)
-                .setOnUpdate((Color c) => highlightOverlay.color = c);
-        }
+        if (!highlightOverlay) return;
+        LeanTween.cancel(highlightOverlay.gameObject);
+        LeanTween.value(highlightOverlay.gameObject, highlightOverlay.color, overlayHighlight, 0.12f)
+            .setOnUpdate(c => highlightOverlay.color = c);
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        if (highlightOverlay != null)
-        {
-            LeanTween.cancel(highlightOverlay.gameObject);
-            LeanTween.value(highlightOverlay.gameObject, highlightOverlay.color, overlayNormal, 0.15f)
-                .setOnUpdate((Color c) => highlightOverlay.color = c);
-        }
+        if (!highlightOverlay) return;
+        LeanTween.cancel(highlightOverlay.gameObject);
+        LeanTween.value(highlightOverlay.gameObject, highlightOverlay.color, overlayNormal, 0.12f)
+            .setOnUpdate(c => highlightOverlay.color = c);
     }
 
     public void OnDrop(PointerEventData eventData)
     {
-        ItemUI droppedItem = eventData.pointerDrag?.GetComponent<ItemUI>();
-        if (droppedItem == null)
-            return;
+        var droppedItem = eventData?.pointerDrag?.GetComponent<ItemUI>();
+        if (droppedItem == null) return;
 
-        // Feedback rapide
-        if (highlightOverlay != null)
+        // Feedback
+        if (highlightOverlay)
         {
             LeanTween.cancel(highlightOverlay.gameObject);
             LeanTween.sequence()
                 .append(LeanTween.value(highlightOverlay.gameObject, overlayHighlight, overlayNormal, 0.25f)
-                    .setOnUpdate((Color c) => highlightOverlay.color = c));
+                    .setOnUpdate(c => highlightOverlay.color = c));
         }
 
-        // Supprime visuellement
-        Destroy(droppedItem.gameObject);
+        bool removed = false;
 
-        // Supprime logiquement (joueur ou container)
-        if (InventoryManager.Instance != null &&
-            droppedItem.transform.IsChildOf(InventoryManager.Instance.itemsLayer))
+        // 1) Quelle était la source réelle au moment du drag ?
+        var drag = droppedItem.GetComponent<ItemDrag>();
+        var playerInv = drag != null ? drag.sourcePlayerInv : droppedItem.GetComponentInParent<InventoryManager>();
+        var contInv = drag != null ? drag.sourceContainerInv : droppedItem.GetComponentInParent<ContainerInventoryManager>();
+
+        // 2) Supprime logiquement dans la bonne source
+        if (playerInv != null)
         {
-            InventoryManager.Instance.RemoveItem(droppedItem);
+            playerInv.RemoveItem(droppedItem);
+            removed = true;
+        }
+        else if (contInv != null)
+        {
+            contInv.RemoveItem(droppedItem);
+            var container = contInv.GetComponentInParent<Container>();
+            if (container != null) container.SaveFrom(contInv);
+            removed = true;
         }
         else
         {
-            var containerInv = droppedItem.GetComponentInParent<ContainerInventoryManager>();
-            if (containerInv != null)
+            // 3) Fallback ultra-sûr : libère les slots si on ne trouve pas la source
+            if (droppedItem.occupiedSlots != null)
             {
-                containerInv.RemoveItem(droppedItem);
-                var container = containerInv.GetComponentInParent<Container>();
-                if (container != null)
-                    container.SaveFrom(containerInv);
+                foreach (var s in droppedItem.occupiedSlots)
+                    if (s != null) s.ClearItem();
             }
+            droppedItem.currentSlot = null;
+            removed = true;
         }
 
-        Debug.Log($"🗑️ Item {droppedItem.itemData?.itemName} supprimé définitivement !");
+        // 4) Destruction visuelle
+        if (removed)
+        {
+            Destroy(droppedItem.gameObject);
+            Debug.Log($"🗑️ {droppedItem.itemData?.itemName} supprimé !");
+        }
     }
 }

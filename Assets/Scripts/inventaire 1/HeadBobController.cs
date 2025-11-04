@@ -32,49 +32,30 @@ public class HeadBobController : MonoBehaviour
 
     void LateUpdate()
     {
-        // 🔒 Bloque si inventaire ouvert
-        if (InventoryToggle.IsInventoryOpen)
-            return;
+        if (InventoryToggle.IsInventoryOpen) return;
 
         float h = Input.GetAxisRaw("Horizontal");
         float v = Input.GetAxisRaw("Vertical");
         float inputMag = new Vector2(h, v).magnitude;
-        bool isRunning = Input.GetKey(KeyCode.LeftShift) && inputMag > inputThreshold;
+        bool run = Input.GetKey(KeyCode.LeftShift) && inputMag > inputThreshold;
 
-        isMoving = inputMag > inputThreshold;
-
-        if (!isMoving)
+        bool moving = inputMag > inputThreshold;
+        if (!moving)
         {
             timer = 0f;
             currentOffset = Vector3.Lerp(currentOffset, Vector3.zero, Time.deltaTime * idleResetSpeed);
         }
         else
         {
-            float bobSpeed = isRunning ? runBobSpeed : walkBobSpeed;
-            float bobXAmount = isRunning ? runBobAmountX : walkBobAmountX;
-            float bobYAmount = isRunning ? runBobAmountY : walkBobAmountY;
+            float s = run ? runBobSpeed : walkBobSpeed;
+            float ax = run ? runBobAmountX : walkBobAmountX;
+            float ay = run ? runBobAmountY : walkBobAmountY;
+            timer += Time.deltaTime * s * Mathf.Clamp01(inputMag);
 
-            timer += Time.deltaTime * bobSpeed * Mathf.Clamp01(inputMag);
-
-            float bobX = Mathf.Cos(timer) * bobXAmount;
-            float bobY = Mathf.Sin(timer * 2f) * bobYAmount;
-
-            Vector3 targetOffset = new Vector3(bobX, bobY, 0f);
-            currentOffset = Vector3.Lerp(currentOffset, targetOffset, Time.deltaTime * smooth);
+            Vector3 target = new Vector3(Mathf.Cos(timer) * ax, Mathf.Sin(timer * 2f) * ay, 0f);
+            currentOffset = Vector3.Lerp(currentOffset, target, Time.deltaTime * smooth);
         }
 
-        // 🧩 Application ADDITIVE
-        // ✅ Conserve la position du lean, on ajoute juste le bob par-dessus
-        transform.localPosition += currentOffset;
-
-        // Arme optionnelle
-        if (weaponHolder)
-        {
-            weaponHolder.localPosition = Vector3.Lerp(
-                weaponHolder.localPosition,
-                baseLocalPos + currentOffset * 0.5f,
-                Time.deltaTime * smooth
-            );
-        }
+        transform.localPosition = currentOffset;
     }
 }

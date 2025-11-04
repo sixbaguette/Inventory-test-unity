@@ -5375,14 +5375,14 @@ MonoBehaviour:
   normalX: 0.4
   aimX: 0.2
   aimTransitionSpeed: 8
-  recoilUp: 3
-  recoilSide: 2
+  recoilUp: 1.5
+  recoilSide: 1
   recoilBack: 0.001
-  recoilReturnSpeed: 8
-  recoilRotationUp: 5
-  recoilRotationSide: 2
-  recoilSnappiness: 2
-  recoilReturn: 8
+  recoilReturnSpeed: 30
+  recoilRotationUp: 4
+  recoilRotationSide: 1.5
+  recoilSnappiness: 1
+  recoilReturn: 30
   recoilMultiplier: 1.2
   playerCamera: {fileID: 0}
   normalFOV: 60

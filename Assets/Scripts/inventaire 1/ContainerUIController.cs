@@ -162,7 +162,7 @@ public class ContainerUIController : MonoBehaviour
         currentContainer = null;
 
         Cursor.visible = true;
-        Cursor.lockState = CursorLockMode.None;
+        Cursor.lockState = CursorLockMode.Locked;
 
         Debug.Log("[ContainerUI] Conteneur fermé, items détruits et grille réinitialisée.");
     }

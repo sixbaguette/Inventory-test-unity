@@ -47,6 +47,7 @@ GameObject:
   - component: {fileID: 8032903516992407881}
   - component: {fileID: 1005674105133482924}
   - component: {fileID: 1140251895571424892}
+  - component: {fileID: 8231972175511839315}
   m_Layer: 8
   m_Name: Coffre
   m_TagString: Untagged
@@ -158,13 +159,7 @@ MonoBehaviour:
   containerName: Coffre
   width: 6
   height: 5
-  startingItems:
-  - itemData: {fileID: 11400000, guid: 527d161451b8faf4ab36e345422198d5, type: 2}
-    stackCount: 1
-  - itemData: {fileID: 11400000, guid: bee327b36c45fac4eaef0a21debed158, type: 2}
-    stackCount: 30
-  - itemData: {fileID: 11400000, guid: bdc136c0f78b10a43b37d8b222e32cf4, type: 2}
-    stackCount: 2
+  startingItems: []
   storedItems: []
 --- !u!114 &1140251895571424892
 MonoBehaviour:
@@ -178,6 +173,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cbc023b3050674b47a958465f838e183, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &8231972175511839315
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5011748015042681786}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cc2aacd58623c6c42b52d7894bebdcbf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  profile: {fileID: 11400000, guid: cd7c63fd50f087d408052928b06632e0, type: 2}
+  container: {fileID: 0}
+  containerInv: {fileID: 0}
+  generateOnOpenIfEmpty: 0
+  regenerateEveryOpen: 1
+  placeAttemptsPerItem: 20
 --- !u!1 &7864911189549297189
 GameObject:
   m_ObjectHideFlags: 0

@@ -208,20 +208,25 @@ public class GunSystem : MonoBehaviour
             audioSource.PlayOneShot(weaponData.fireSound);
         }
 
+        // === UNIFIED CAMERA + WEAPON RECOIL ===
         currentAmmo--;
         if (linkedItemUI != null) linkedItemUI.currentAmmo = currentAmmo;
 
-        // Recoil visuel...
-        float recoilVertical = Random.Range(recoilUp * 0.8f, recoilUp * 1.2f);
-        float recoilHorizontal = Random.Range(-recoilSide, recoilSide);
-        recoilTarget += new Vector2(recoilVertical, recoilHorizontal);
+        var camCtrl = FindFirstObjectByType<FPSCameraController>();
+        Vector3 recoil = Vector3.zero;
 
-        float recoilX = Random.Range(recoilRotationUp * 0.8f, recoilRotationUp * 1.2f) * recoilMultiplier;
-        float recoilY = Random.Range(-recoilRotationSide, recoilRotationSide) * recoilMultiplier;
-        targetRotation += new Vector3(-recoilX, recoilY, 0f);
+        if (camCtrl != null)
+        {
+            // La caméra génère le vrai recoil et le renvoie
+            recoil = camCtrl.GenerateRecoil(recoilRotationUp, recoilRotationSide, recoilBack, recoilMultiplier);
+        }
 
-        targetWeaponRecoil += -Vector3.forward * recoilBack;
-        if (muzzleFlashController != null) muzzleFlashController.PlayFlash();
+        // L’arme suit la caméra à 100 %
+        targetRotation += new Vector3(-recoil.x, recoil.y, 0f);
+        targetWeaponRecoil += -Vector3.forward * recoil.z;
+
+        if (muzzleFlashController != null)
+            muzzleFlashController.PlayFlash();
     }
 
     // === 🔁 RELOAD ===
@@ -358,6 +363,10 @@ public class GunSystem : MonoBehaviour
             handSocket.localPosition = p;
         }
         nextShotTime = Time.time + 0.05f;
+
+        var camCtrl = FindFirstObjectByType<FPSCameraController>();
+        if (camCtrl != null)
+            camCtrl.SetRecoilDynamics(recoilSnappiness, recoilReturn);
     }
 
     public void DisableWeapon() => gameObject.SetActive(false);
