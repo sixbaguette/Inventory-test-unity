@@ -17,7 +17,7 @@ public class WorldItem : MonoBehaviour
 
     private void Start()
     {
-        // 🛡️ Sécurité : s’il n’est pas stackable, toujours 1
+        //Sécurité : s’il n’est pas stackable, toujours 1
         if (itemData != null && !itemData.isStackable)
             stackCount = 1;
 

@@ -26,7 +26,7 @@ public class MuzzleFlashController : MonoBehaviour
 
     void OnEnable()
     {
-        // 🔇 Éteint tout au moment où l’arme apparaît
+        // Éteint tout au moment où l’arme apparaît
         if (flashParticles != null)
         {
             flashParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
@@ -40,11 +40,11 @@ public class MuzzleFlashController : MonoBehaviour
 
     public void PlayFlash()
     {
-        // 🟡 Joue le particle system
+        // Joue le particle system
         if (flashParticles != null)
             flashParticles.Play(true);
 
-        // 💡 Allume brièvement la lumière
+        // Allume brièvement la lumière
         if (flashLight != null)
         {
             if (lightRoutine != null)

@@ -47,7 +47,6 @@ public class Slot : MonoBehaviour
         return itemUI;
     }
 
-    // --- NOUVEAU ---
     public void Highlight(Color color)
     {
         if (slotImage != null)

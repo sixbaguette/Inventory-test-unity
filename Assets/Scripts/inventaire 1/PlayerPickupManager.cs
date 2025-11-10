@@ -37,7 +37,7 @@ public class PlayerPickupManager : MonoBehaviour
             return;
         }
 
-        // 🔫 Raycast droit devant le joueur
+        // Raycast droit devant le joueur
         Ray ray = new Ray(cam.transform.position, cam.transform.forward);
         RaycastHit hit;
 
@@ -46,7 +46,7 @@ public class PlayerPickupManager : MonoBehaviour
             WorldItem wi = hit.collider.GetComponentInParent<WorldItem>();
             if (wi != null && wi.itemData != null)
             {
-                // ✅ Utilise le vrai stackCount du WorldItem touché
+                // Utilise le vrai stackCount du WorldItem touché
                 int amount = wi.itemData.isStackable ? Mathf.Max(1, wi.stackCount) : 1;
 
                 // === Arme ou objet classique ===
@@ -57,7 +57,7 @@ public class PlayerPickupManager : MonoBehaviour
 
                     if (added)
                     {
-                        // ✅ Récupère l’ItemUI nouvellement créé
+                        // Récupère l’ItemUI nouvellement créé
                         ItemUI newUI = InventoryManager.Instance.GetLastItem();
                         if (newUI != null)
                         {
@@ -125,13 +125,13 @@ public class PlayerPickupManager : MonoBehaviour
         {
             if (itemToDrop.currentStack > 1)
             {
-                // 🟡 On drop 1 seul item du stack
+                // On drop 1 seul item du stack
                 GameObject go = Instantiate(data.worldPrefab, dropPos, Quaternion.identity);
                 WorldItem wi = go.GetComponent<WorldItem>();
                 if (wi != null)
                 {
                     wi.itemData = data;
-                    wi.SetStackCount(1); // ✅ très important : stackCount = 1
+                    wi.SetStackCount(1); // très important : stackCount = 1
                 }
 
                 itemToDrop.currentStack--;
@@ -166,7 +166,7 @@ public class PlayerPickupManager : MonoBehaviour
 
             if (data.isGun)
             {
-                droppedWorldItem.currentAmmo = itemToDrop.currentAmmo; // ✅ conserve les balles restantes
+                droppedWorldItem.currentAmmo = itemToDrop.currentAmmo; // conserve les balles restantes
                 Debug.Log($"[Drop] Arme '{data.itemName}' dropée avec {droppedWorldItem.currentAmmo} balles");
             }
         }
@@ -193,13 +193,13 @@ public class PlayerPickupManager : MonoBehaviour
         {
             if (itemToDrop.currentStack > 1)
             {
-                // 🔹 on drop UN seul exemplaire
+                // on drop UN seul exemplaire
                 GameObject go = Instantiate(data.worldPrefab, dropPos, Quaternion.identity);
                 WorldItem wi = go.GetComponent<WorldItem>();
                 if (wi != null)
                 {
                     wi.itemData = data;
-                    wi.SetStackCount(1); // ⬅️ CRUCIAL : l’objet au sol vaut 1
+                    wi.SetStackCount(1); // CRUCIAL : l’objet au sol vaut 1
                 }
 
                 itemToDrop.currentStack--;
@@ -209,13 +209,13 @@ public class PlayerPickupManager : MonoBehaviour
             }
             else
             {
-                // 🔹 dernier exemplaire du stack → drop 1 et retire l’UI
+                // dernier exemplaire du stack → drop 1 et retire l’UI
                 GameObject go = Instantiate(data.worldPrefab, dropPos, Quaternion.identity);
                 WorldItem wi = go.GetComponent<WorldItem>();
                 if (wi != null)
                 {
                     wi.itemData = data;
-                    wi.SetStackCount(1); // ⬅️ ici aussi : 1, pas la valeur du prefab
+                    wi.SetStackCount(1); // ici aussi : 1, pas la valeur du prefab
                 }
 
                 inv.RemoveItem(itemToDrop);
@@ -233,7 +233,7 @@ public class PlayerPickupManager : MonoBehaviour
 
             if (data.isGun)
             {
-                droppedWorldItem.currentAmmo = itemToDrop.currentAmmo; // ✅ on copie le chargeur actuel
+                droppedWorldItem.currentAmmo = itemToDrop.currentAmmo; // on copie le chargeur actuel
                 Debug.Log($"[DropSpecific] Arme '{data.itemName}' dropée avec {droppedWorldItem.currentAmmo} balles");
             }
         }
@@ -242,25 +242,25 @@ public class PlayerPickupManager : MonoBehaviour
         if (InventoryManager.Instance != null &&
             itemToDrop.transform.IsChildOf(InventoryManager.Instance.itemsLayer))
         {
-            // 🧍‍♂️ L'item est bien dans l'inventaire du joueur
+            // L'item est bien dans l'inventaire du joueur
             InventoryManager.Instance.RemoveItem(itemToDrop);
         }
         else
         {
-            // 📦 Sinon, c’est un item d’un container
+            // Sinon, c’est un item d’un container
             var containerInv = itemToDrop.GetComponentInParent<ContainerInventoryManager>();
             if (containerInv != null)
             {
                 containerInv.RemoveItem(itemToDrop);
 
-                // 🔄 Persistance immédiate
+                // Persistance immédiate
                 var container = containerInv.GetComponentInParent<Container>();
                 if (container != null)
                     container.SaveFrom(containerInv);
             }
             else
             {
-                // ⚠️ Sécurité si l’objet n’est dans aucun inventaire
+                // Sécurité si l’objet n’est dans aucun inventaire
                 GameObject.Destroy(itemToDrop.gameObject);
                 Debug.LogWarning($"[DropSpecificItem] Item {itemToDrop.itemData?.itemName} supprimé manuellement (hors inventaire).");
             }
@@ -282,7 +282,7 @@ public class PlayerPickupManager : MonoBehaviour
 
         if (data.worldStackMode == WorldStackMode.SingleObjectWithCount)
         {
-            // ✅ A : un seul objet 3D avec stackCount interne
+            // A : un seul objet 3D avec stackCount interne
             GameObject go = Instantiate(data.worldPrefab, dropPos, Quaternion.identity);
             WorldItem wi = go.GetComponent<WorldItem>();
             if (wi != null)
@@ -293,7 +293,7 @@ public class PlayerPickupManager : MonoBehaviour
         }
         else
         {
-            // ✅ B : plusieurs objets 3D distincts
+            // B : plusieurs objets 3D distincts
             for (int i = 0; i < itemToDrop.currentStack; i++)
             {
                 Vector3 offset = new Vector3(
@@ -309,25 +309,25 @@ public class PlayerPickupManager : MonoBehaviour
         if (InventoryManager.Instance != null &&
             itemToDrop.transform.IsChildOf(InventoryManager.Instance.itemsLayer))
         {
-            // 🧍‍♂️ L'item vient de l'inventaire joueur
+            // L'item vient de l'inventaire joueur
             InventoryManager.Instance.RemoveItem(itemToDrop);
         }
         else
         {
-            // 📦 Item venant d’un container
+            // Item venant d’un container
             var containerInv = itemToDrop.GetComponentInParent<ContainerInventoryManager>();
             if (containerInv != null)
             {
                 containerInv.RemoveItem(itemToDrop);
 
-                // 🔄 Persistance immédiate pour le coffre
+                // Persistance immédiate pour le coffre
                 var container = containerInv.GetComponentInParent<Container>();
                 if (container != null)
                     container.SaveFrom(containerInv);
             }
             else
             {
-                // ⚠️ Sécurité : détruit l’objet si on ne sait pas d’où il vient
+                // Sécurité : détruit l’objet si on ne sait pas d’où il vient
                 GameObject.Destroy(itemToDrop.gameObject);
                 Debug.LogWarning($"[DropEntireStack] Item {itemToDrop.itemData?.itemName} supprimé manuellement (hors inventaire).");
             }

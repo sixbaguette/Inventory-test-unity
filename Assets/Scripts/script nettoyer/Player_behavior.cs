@@ -4,7 +4,7 @@
 public class PlayerBehavior : MonoBehaviour
 {
     [Header("Références")]
-    public Transform orientation;           // Référence à la rotation du joueur (souvent ton playerBody)
+    public Transform orientation;           // Référence à la rotation du joueur
     private Climb2 climb;
     private Rigidbody rb;
 
@@ -47,14 +47,14 @@ public class PlayerBehavior : MonoBehaviour
 
     private void Update()
     {
-        // 🧱 Bloque toute action si inventaire ouvert
+        // Bloque toute action si inventaire ouvert
         if (InventoryToggle.IsInventoryOpen)
         {
             rb.linearVelocity = Vector3.zero;
             return;
         }
 
-        // 🧗‍♂️ Si on grimpe → ne pas bouger par le script de déplacement
+        // Si on grimpe → ne pas bouger par le script de déplacement
         if (climb != null && climb.isClimbing)
         {
             rb.linearVelocity = Vector3.zero;
@@ -76,7 +76,7 @@ public class PlayerBehavior : MonoBehaviour
 
     private void HandleMovement()
     {
-        // 🧱 Si on grimpe → on ne fait rien ici (évite les erreurs et glissements)
+        // Si on grimpe → on ne fait rien ici (évite les erreurs et glissements)
         if (climb != null && climb.isClimbing)
         {
             rb.linearVelocity = Vector3.zero;
@@ -85,17 +85,17 @@ public class PlayerBehavior : MonoBehaviour
 
         Vector3 moveDir = Vector3.zero;
 
-        // 🔹 Lecture des touches directionnelles
+        // Lecture des touches directionnelles
         if (Input.GetKey(KeyCode.W)) moveDir += orientation.forward;
         if (Input.GetKey(KeyCode.S)) moveDir -= orientation.forward;
         if (Input.GetKey(KeyCode.A)) moveDir -= orientation.right;
         if (Input.GetKey(KeyCode.D)) moveDir += orientation.right;
 
-        // 🔹 Normalisation pour éviter d’aller plus vite en diagonale
+        // Normalisation pour éviter d’aller plus vite en diagonale
         if (moveDir != Vector3.zero)
             moveDir.Normalize();
 
-        // 🔹 Calcul de la vitesse actuelle
+        // Calcul de la vitesse actuelle
         float speed = baseSpeed;
 
         if (Input.GetKey(KeyCode.LeftShift) && !crouched)
@@ -104,7 +104,7 @@ public class PlayerBehavior : MonoBehaviour
         if (crouched)
             speed -= crouchSpeedDebuff;
 
-        // 🔹 Applique la vitesse horizontale uniquement (on garde la gravité sur Y)
+        // Applique la vitesse horizontale uniquement (on garde la gravité sur Y)
         Vector3 targetVelocity = moveDir * speed;
         rb.linearVelocity = new Vector3(targetVelocity.x, rb.linearVelocity.y, targetVelocity.z);
     }

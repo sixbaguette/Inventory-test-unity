@@ -19,7 +19,7 @@ public class SplitStackWindow : MonoBehaviour
         Instance = this;
         gameObject.SetActive(false);
 
-        // 🔝 Force le SplitStackWindow à être dans un Canvas overlay tout en haut
+        // Force le SplitStackWindow à être dans un Canvas overlay tout en haut
         Canvas overlay = null;
         var existing = GameObject.Find("TopOverlayCanvas");
         if (existing != null)
@@ -100,7 +100,7 @@ public class SplitStackWindow : MonoBehaviour
             return;
         }
 
-        // ➜ Détermine la "même" origine que la source
+        // Détermine la "même" origine que la source
         bool fromPlayer = (sourceItem.Owner == ItemUI.ItemOwner.Player);
         bool fromContainer = (sourceItem.Owner == ItemUI.ItemOwner.Container);
 
@@ -149,11 +149,11 @@ public class SplitStackWindow : MonoBehaviour
             fromContainer = cont != null;
         }
 
-        // ➜ Réduit le stack d’origine
+        // Réduit le stack d’origine
         sourceItem.currentStack -= amount;
         sourceItem.UpdateStackText();
 
-        // ➜ Crée le nouveau stack DANS LE MÊME INVENTAIRE
+        // Crée le nouveau stack DANS LE MÊME INVENTAIRE
         if (fromPlayer)
         {
             // instancie dans la couche Items du joueur
@@ -225,7 +225,6 @@ public class SplitStackWindow : MonoBehaviour
             newStack.ResetVisualLayout();
         }
 
-        Debug.Log($"[Split] Nouveau stack de {amount} créé pour {sourceItem.itemData.itemName} dans {(fromPlayer ? "l'inventaire joueur" : "le conteneur")}.");
         Close();
     }
 
@@ -233,20 +232,5 @@ public class SplitStackWindow : MonoBehaviour
     {
         gameObject.SetActive(false);
         sourceItem = null;
-    }
-}
-
-// 🔧 Helper pour afficher le chemin complet d'un transform
-public static class TransformExtensions
-{
-    public static string GetHierarchyPath(this Transform t)
-    {
-        string path = t.name;
-        while (t.parent != null)
-        {
-            t = t.parent;
-            path = t.name + "/" + path;
-        }
-        return path;
     }
 }

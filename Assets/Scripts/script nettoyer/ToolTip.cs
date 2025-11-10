@@ -64,12 +64,12 @@ public class Tooltip : MonoBehaviour
     }
 
     // ------------------------------
-    // 🟢 TOOLTIP CLASSIQUE
+    // TOOLTIP CLASSIQUE
     // ------------------------------
     public void Show(ItemData item)
     {
-        if (!CanShowHover()) return;          // ⬅️ bloque le hover si verrou
-        gameObject.SetActive(true);           // ⬅️ important
+        if (!CanShowHover()) return;          // bloque le hover si verrou
+        gameObject.SetActive(true);
 
         if (item == null) return;
 
@@ -93,11 +93,11 @@ public class Tooltip : MonoBehaviour
     }
 
     // ------------------------------
-    // 🔵 MODE INSPECTEUR 3D
+    // MODE INSPECTEUR 3D
     // ------------------------------
     public void ShowInspect3D(ItemData item)
     {
-        gameObject.SetActive(true);           // ⬅️ important
+        gameObject.SetActive(true);
         isInspecting = true;
 
         if (item == null || item.worldPrefab == null)
@@ -132,25 +132,25 @@ public class Tooltip : MonoBehaviour
         }
         else
         {
-            // ✅ Réactive la caméra si elle avait été désactivée
+            // Réactive la caméra si elle avait été désactivée
             inspectCamera.enabled = true;
             inspectCamera.gameObject.SetActive(true);
         }
 
-        // 🔧 Crée la RenderTexture et relie tout
+        // Crée la RenderTexture et relie tout
         if (renderTexture == null)
             renderTexture = new RenderTexture(1024, 1024, 16);
 
         inspectCamera.targetTexture = renderTexture;
         renderDisplay.texture = renderTexture;
-        // ✅ Force un rendu immédiat (utile si la caméra vient d'être réactivée)
+        // Force un rendu immédiat (utile si la caméra vient d'être réactivée)
         inspectCamera.Render();
 
-        // 🔄 Nettoie ancien modèle
+        // Nettoie ancien modèle
         foreach (Transform child in inspectPivot)
             Destroy(child.gameObject);
 
-        // 🧱 Instancie le modèle
+        // Instancie le modèle
         current3DObject = Instantiate(item.worldPrefab, inspectPivot);
         current3DObject.transform.localPosition = Vector3.zero;
         current3DObject.transform.localRotation = Quaternion.identity;
@@ -162,8 +162,6 @@ public class Tooltip : MonoBehaviour
 
         if (itemNameText != null) itemNameText.text = item.itemName;
         if (itemDescriptionText != null) itemDescriptionText.text = item.description;
-
-        Debug.Log($"[Inspect3D] Objet instancié : {current3DObject.name}");
 
         SetTextsVisible(true);
 
@@ -186,10 +184,10 @@ public class Tooltip : MonoBehaviour
     {
         isInspecting = false;
 
-        // 🔇 Cache les textes
+        // Cache les textes
         SetTextsVisible(false);
 
-        // 🔧 Désactive les éléments visuels sans désactiver le GameObject principal
+        // Désactive les éléments visuels sans désactiver le GameObject principal
         if (renderDisplay) renderDisplay.gameObject.SetActive(false);
         if (inspectCamera)
         {
@@ -216,13 +214,11 @@ public class Tooltip : MonoBehaviour
 
         if (darkOverlay) darkOverlay.enabled = false;
 
-        // 🔒 Verrou anti-hover pour éviter un flicker immédiat
+        // Verrou anti-hover pour éviter un flicker immédiat
         hoverLockUntil = Time.time + hoverLockDuration;
 
-        // ❌ NE PAS désactiver le GameObject principal (gameObject.SetActive(false))
-        // → sinon plus rien ne fonctionne au prochain inspect
-
-        Debug.Log("[Tooltip] Fermeture complète mais Tooltip reste actif (pour réutilisation).");
+        // NE PAS désactiver le GameObject principal (gameObject.SetActive(false))
+        // sinon plus rien ne fonctionne au prochain inspect
     }
 
     public void CloseInspect3D()

@@ -13,9 +13,9 @@ public class PlayerContainerInteractor : MonoBehaviour
     {
         cam = GetComponentInChildren<Camera>();
         if (cam == null)
-            Debug.LogError("[Interactor] ❌ Aucune caméra trouvée !");
+            Debug.LogError("[Interactor] Aucune caméra trouvée !");
         else
-            Debug.Log("[Interactor] ✅ Caméra trouvée : " + cam.name);
+            Debug.Log("[Interactor] Caméra trouvée : " + cam.name);
     }
 
     void Update()

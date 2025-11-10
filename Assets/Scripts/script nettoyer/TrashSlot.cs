@@ -104,7 +104,6 @@ public class TrashSlot : MonoBehaviour, IDropHandler, IPointerEnterHandler, IPoi
         if (removed)
         {
             Destroy(droppedItem.gameObject);
-            Debug.Log($"🗑️ {droppedItem.itemData?.itemName} supprimé !");
         }
     }
 }

@@ -29,8 +29,8 @@ public class PlayerEquipHandler : MonoBehaviour
         if (itemData.isGun && gun != null)
         {
             gun.handSocket = handSocket;
-            gun.EquipWeapon(itemData, itemUI); // 🆕 on passe le ItemUI ici
-            gun.ApplyHandOffset();   // 🆕 ici
+            gun.EquipWeapon(itemData, itemUI); // on passe le ItemUI ici
+            gun.ApplyHandOffset();   // ici
             gun.enabled = true;
         }
 
@@ -41,7 +41,7 @@ public class PlayerEquipHandler : MonoBehaviour
     {
         if (currentEquippedObject != null)
         {
-            // 🆕 remet le handSocket à zéro avant destruction
+            // remet le handSocket à zéro avant destruction
             GunSystem gun = currentEquippedObject.GetComponent<GunSystem>();
             if (gun != null)
                 gun.ResetHandOffset();
